@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f3f1eb">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Remote LSL Recorder</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/vdoninja-sdk.min.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="appbar">
+    <div>
+      <span class="eyebrow">Phone companion</span>
+      <h1>Remote LSL Recorder</h1>
+    </div>
+    <span id="connection-pill" class="pill">Not connected</span>
+  </header>
+
+  <main>
+    <section id="pairing-panel" class="panel pairing">
+      <h2>Join the recorder</h2>
+      <p id="pairing-copy">This invitation gives temporary access to one recorder session.</p>
+      <button id="connect" type="button">Connect</button>
+      <p id="connection-status" class="status" role="status">Waiting for you.</p>
+    </section>
+
+    <div id="remote-workspace" hidden>
+      <section class="panel recording-panel">
+        <div>
+          <span class="eyebrow">Recording</span>
+          <h2 id="recording-phase">Idle</h2>
+          <p id="recording-detail">No recording is active.</p>
+        </div>
+        <div class="record-actions">
+          <button id="start-recording" type="button">Start</button>
+          <button id="stop-recording" type="button" class="danger" disabled>Stop</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Session</h2>
+          <span id="revision">Revision 0</span>
+        </div>
+        <label for="participant-id">Participant ID</label>
+        <div class="inline-form">
+          <input id="participant-id" maxlength="64" autocomplete="off">
+          <button id="apply-participant" type="button" class="secondary">Apply</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>LSL streams</h2>
+          <button id="refresh-streams" type="button" class="quiet">Refresh</button>
+        </div>
+        <div id="stream-list" class="stream-list"></div>
+      </section>
+
+      <section class="panel markers-panel">
+        <div class="section-heading">
+          <h2>Markers</h2>
+          <span id="marker-count">0 recent</span>
+        </div>
+        <ol id="marker-list" class="marker-list"></ol>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    Controls stay valid only while the desktop app keeps this pairing session open.
+  </footer>
+</body>
+</html>
