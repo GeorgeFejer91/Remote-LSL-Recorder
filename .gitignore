@@ -1,0 +1,14 @@
+# Local agent/runtime artifacts
+.for-ai-local/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Operating-system and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*.log
