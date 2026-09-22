@@ -52,6 +52,9 @@ companion.
 
 - Private GitHub repository initialized on 2026-09-22 with `main` as the
   default branch.
+- Companion source is mirrored to `gh-pages`; GitHub Pages activation is
+  blocked because the current account plan does not support Pages for this
+  private repository.
 - Tauri v2, Rust 2024, and plain HTML/CSS/JavaScript are the selected stack.
 - Windows x86_64 is the first packaging and runtime target.
 
