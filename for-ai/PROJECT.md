@@ -50,11 +50,10 @@ companion.
 
 ## Current verified state
 
-- Private GitHub repository initialized on 2026-09-22 with `main` as the
-  default branch.
-- Companion source is mirrored to `gh-pages`; GitHub Pages activation is
-  blocked because the current account plan does not support Pages for this
-  private repository.
+- Public GitHub repository initialized on 2026-09-22 with `main` as the default
+  branch.
+- Companion source is published from `gh-pages` at
+  `https://georgefejer91.github.io/Remote-LSL-Recorder/` with HTTPS enforced.
 - Tauri v2, Rust 2024, and plain HTML/CSS/JavaScript are the selected stack.
 - Windows x86_64 is the first packaging and runtime target.
 

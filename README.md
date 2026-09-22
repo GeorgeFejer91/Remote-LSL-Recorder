@@ -26,7 +26,5 @@ recordings, invitations, and participant data are never committed.
 AI-agent project context starts at [`for-ai/README.md`](./for-ai/README.md).
 
 Repository: https://github.com/GeorgeFejer91/Remote-LSL-Recorder
-The static `companion/` source is mirrored to the repository's `gh-pages`
-branch. The intended URL is
-<https://georgefejer91.github.io/Remote-LSL-Recorder/>; enabling the live site
-requires a repository visibility or account plan that supports GitHub Pages.
+The static `companion/` source is published from the repository's `gh-pages`
+branch at <https://georgefejer91.github.io/Remote-LSL-Recorder/>.
