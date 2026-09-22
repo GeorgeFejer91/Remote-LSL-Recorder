@@ -21,12 +21,48 @@ Higher-priority instructions and the current user request always win.
 | Architecture, ownership, contracts, authority, observability, or durable handoff design | `system-engineering` | Conditional when the task materially changes these surfaces. |
 | Large repository inventory, instruction audit, dependency pressure, or broad impact mapping | `rust-work-graph` | Conditional only when repository complexity justifies graph analysis. |
 | HTML/CSS or frontend UI generation | `uncodixfy` | Conditional for visible frontend code; preserve the product's chosen identity. |
+| User-approved interactive Windows or browser verification | `computer-use:computer-use` | Conditional when installed and its native runtime is available. Use only for the named UI check; static inspection and process launch evidence are not substitutes for interaction evidence. |
 
 ## Project-specific routes
 
-None yet. Add exact identifiers only after the project selects a stack or
-domain that genuinely needs them. Record required vs conditional status,
-nesting order, fallback behavior, and source revision for vendored skills.
+| Work | Skill | Policy |
+| --- | --- | --- |
+| Any repository task | `tauri-rust-developer` | Required: inspect the Rust/Tauri boundary and use its task-routed references. Pause and disclose if unavailable. |
+| Product-wide Tauri, CLI, or companion work | `tauri-remote-app-builder` | Required for end-to-end slices and adapter-parity decisions. |
+| BRSP or VDO.Ninja integration | `browser-remote-sync-protocol` | Required: preserve target authority, typed actions, explicit activation, proof, scopes, revision, and teardown. |
+| Control-plane creation or a deliberate `for-ai/` migration | `for-ai` | Conditional: use only for greenfield setup or an explicitly requested control-plane migration, not as a substitute for reading this repository's local instructions. |
+
+Nesting for remote UI work is: `ponytail` -> `system-engineering` ->
+`tauri-remote-app-builder` -> `tauri-rust-developer` ->
+`browser-remote-sync-protocol` -> `uncodixfy`.
+
+## Cross-project audit
+
+The 2026-09-22 audit covered the HTML/Tauri projects in the owner's canonical
+GitHub workspace, including Affect Tracker Research, Affect Tracker Playground,
+ECGaming, Polar Stream, ZuRadio, and the local MCP launcher. The recurring,
+installed routes are represented above: `tauri-rust-developer`,
+`tauri-remote-app-builder`, `browser-remote-sync-protocol`,
+`system-engineering`, `uncodixfy`, `ponytail`, `rust-work-graph`, and
+`multi-source-web-search`. Affect Tracker's conditional computer/browser-control
+route is represented by `computer-use:computer-use` when that native runtime is
+available.
+
+No installed or repository-routed skill named "game development" was found.
+Do not invent one. The useful mechanics from Affect Tracker Playground and
+ECGaming are project architecture rules:
+
+- acquisition and recording own timestamps and state;
+- visualization consumes an immutable projection and never drives acquisition;
+- canvas/render work stays bounded and may drop visual frames without dropping
+  recorder samples;
+- device-specific input is normalized before presentation consumes it; and
+- QR invitations remain private, scoped, and explicitly activated.
+
+Apply those rules through `system-engineering`, `tauri-rust-developer`,
+`tauri-remote-app-builder`, `browser-remote-sync-protocol`, and `uncodixfy`.
+Conversation-only visualization tools and bitmap-generation skills are not
+product implementation routes for this code-native HTML interface.
 
 ## Supply-chain rule
 

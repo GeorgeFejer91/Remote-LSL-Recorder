@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Remote LSL Recorder</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="vendor/vdoninja-sdk.min.js" defer></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="appbar">
+    <div>
+      <h1>Remote LSL Recorder</h1>
+      <p id="system-status" role="status">Starting…</p>
+    </div>
+    <div class="toolbar">
+      <button id="refresh-streams" type="button" class="secondary">Refresh streams</button>
+      <button id="remote-open" type="button" class="secondary">Phone remote</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="setup-panel" aria-label="Recording setup">
+      <section>
+        <h2>Session</h2>
+        <form id="session-form">
+          <label for="participant-id">Participant ID</label>
+          <input id="participant-id" name="participantId" maxlength="64" autocomplete="off" required>
+          <label for="output-directory">Recording folder</label>
+          <input id="output-directory" name="outputDirectory" autocomplete="off" required>
+          <button type="submit" class="secondary">Apply session</button>
+        </form>
+      </section>
+
+      <section class="stream-section">
+        <div class="section-heading">
+          <h2>LSL streams</h2>
+          <span id="stream-count">0 found</span>
+        </div>
+        <div id="stream-list" class="stream-list" aria-live="polite">
+          <p class="empty-state">Searching for LSL streams…</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="viewer" aria-label="Live LSL viewer">
+      <div class="viewer-heading">
+        <h2>Signals</h2>
+        <span>Last 300 display samples · up to 16 channels per stream</span>
+      </div>
+      <div id="charts" class="charts">
+        <p class="empty-state">Numeric streams will appear here.</p>
+      </div>
+
+      <section class="markers" aria-labelledby="marker-heading">
+        <div class="viewer-heading">
+          <h2 id="marker-heading">Markers</h2>
+          <span id="marker-count">No markers received</span>
+        </div>
+        <div class="marker-table-wrap">
+          <table>
+            <thead>
+              <tr><th>Received</th><th>Stream</th><th>LSL time</th><th>Marker</th></tr>
+            </thead>
+            <tbody id="marker-list">
+              <tr><td colspan="4" class="empty-state">Irregular marker and event streams are monitored automatically.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="record-bar">
+    <div class="record-state">
+      <span id="record-indicator" aria-hidden="true"></span>
+      <div>
+        <strong id="record-phase">Idle</strong>
+        <span id="record-detail">Configure a participant and select at least one stream.</span>
+      </div>
+    </div>
+    <div class="record-actions">
+      <button id="record-start" type="button" class="primary">Start recording</button>
+      <button id="record-stop" type="button" class="danger" disabled>Stop recording</button>
+    </div>
+  </footer>
+
+  <dialog id="remote-dialog">
+    <form method="dialog" class="dialog-title">
+      <h2>Phone remote</h2>
+      <button type="submit" class="icon-button" aria-label="Close phone remote">×</button>
+    </form>
+    <div id="remote-idle">
+      <p>Start a fresh, temporary pairing session. Nothing connects before you press Start.</p>
+      <button id="remote-start" type="button" class="primary">Start phone access</button>
+    </div>
+    <div id="remote-active" hidden>
+      <div id="remote-qr" class="qr" aria-label="Phone pairing QR code"></div>
+      <p>Scan with the phone camera, then tap Connect in the browser.</p>
+      <a id="remote-link" href="#" target="_blank" rel="noreferrer">Open companion in this browser</a>
+      <dl class="remote-status">
+        <div><dt>Status</dt><dd id="remote-phase">Waiting</dd></div>
+        <div><dt>Route</dt><dd id="remote-route">Unknown</dd></div>
+      </dl>
+      <button id="remote-stop" type="button" class="danger">Stop phone access</button>
+    </div>
+  </dialog>
+</body>
+</html>
