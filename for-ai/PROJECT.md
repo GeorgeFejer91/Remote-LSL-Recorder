@@ -50,7 +50,9 @@ companion.
   trace. Recent markers retain their source text and LSL time. XDF acquisition
   and full preview buffers stay on the PC.
 - Both interfaces use one copied Pretext fitter and a bundled Noto Sans face for
-  bounded action labels. Stream names, marker text, paths, and errors reflow or
+  bounded headings and action labels. CSS owns available space; the fitter
+  scales text between preferred and readable sizes and responds to text, font,
+  and viewport changes. Stream names, marker text, paths, and errors reflow or
   scroll as semantic HTML.
 - VDO.Ninja data-only WebRTC: opt-in BRSP transport. It needs Internet
   signaling/STUN/TURN and is not described as offline-LAN control.

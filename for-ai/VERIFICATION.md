@@ -87,10 +87,11 @@ independent moving ranges, unit labels where declared, and visibility controls
 that do not change recording selection.
 
 For bounded UI text, run the Pretext vendor sync check and inspect the desktop
-WebView and phone browser at narrow and normal widths. Verify action labels
-fit or wrap at the readable floor, stream names and errors remain accessible,
-and the layout recovers when widened. Browser inspection does not establish
-packaged WebView or physical-phone parity.
+WebView and phone browser at narrow and normal widths. Verify headings and
+action labels fit or wrap at the readable floor, dynamic text changes reflow,
+stream names and errors remain accessible, and the layout recovers when
+widened. Browser inspection does not establish packaged WebView or
+physical-phone parity.
 
 For remote control under live marker traffic, confirm marker updates advance
 the state revision without advancing the control revision, then observe a phone

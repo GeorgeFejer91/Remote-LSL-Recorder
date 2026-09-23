@@ -12,7 +12,7 @@
 <body>
   <header class="appbar">
     <div>
-      <h1>Remote LSL Recorder</h1>
+      <h1 data-fit-text="heading">Remote LSL Recorder</h1>
       <p id="system-status" role="status">Starting…</p>
     </div>
     <div class="toolbar">
@@ -24,7 +24,7 @@
   <main class="workspace">
     <aside class="setup-panel" aria-label="Recording setup">
       <section>
-        <h2>Session</h2>
+        <h2 data-fit-text="heading">Session</h2>
         <form id="session-form">
           <label for="participant-id">Participant ID</label>
           <input id="participant-id" name="participantId" maxlength="64" autocomplete="off" required>
@@ -36,7 +36,7 @@
 
       <section class="stream-section">
         <div class="section-heading">
-          <h2>LSL streams</h2>
+          <h2 data-fit-text="heading">LSL streams</h2>
           <span id="stream-count">0 found</span>
         </div>
         <div id="stream-list" class="stream-list" aria-live="polite">
@@ -47,7 +47,7 @@
 
     <section class="viewer" aria-label="Live LSL viewer">
       <div class="viewer-heading">
-        <h2>Signals</h2>
+        <h2 data-fit-text="heading">Signals</h2>
         <span>Last 300 display samples · separate scale for each channel</span>
       </div>
       <div id="viewer-streams" class="viewer-streams" role="group" aria-label="Visible signal streams"></div>
@@ -57,7 +57,7 @@
 
       <section class="markers" aria-labelledby="marker-heading">
         <div class="viewer-heading">
-          <h2 id="marker-heading">Markers</h2>
+          <h2 id="marker-heading" data-fit-text="heading">Markers</h2>
           <span id="marker-count">No markers received</span>
         </div>
         <div class="input-marker-controls" role="group" aria-label="Recorder window input markers">
@@ -94,7 +94,7 @@
 
   <dialog id="remote-dialog">
     <form method="dialog" class="dialog-title">
-      <h2>Phone remote</h2>
+      <h2 data-fit-text="heading">Phone remote</h2>
       <button type="submit" class="icon-button" aria-label="Close phone remote">×</button>
     </form>
     <div id="remote-idle">

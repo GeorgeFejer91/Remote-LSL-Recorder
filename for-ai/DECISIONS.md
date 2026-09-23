@@ -79,9 +79,11 @@ decision and link both entries.
 - Context: The installed viewer and phone controller need flexible action text,
   while frequent marker events can otherwise invalidate every remote action.
 - Decision: Copy one locked Pretext fitter and Noto Sans face into both static
-  interfaces for bounded action labels. Keep arbitrary data text DOM-managed
-  with wrapping or scrolling. Expose a Rust control revision for remote action
-  preconditions while the full state revision still tracks marker events.
+  interfaces for bounded headings and action labels. CSS defines the box and
+  readable font bounds; the fitter reacts to text, font, and width changes.
+  Keep arbitrary data text DOM-managed with wrapping or scrolling. Expose a
+  Rust control revision for remote action preconditions while the full state
+  revision still tracks marker events.
 - Consequences: Vendor assets and both UI surfaces need a sync check; remote
   actions remain guarded against competing control mutations during marker
   traffic. Real WebView and phone rendering remain separate evidence gates.

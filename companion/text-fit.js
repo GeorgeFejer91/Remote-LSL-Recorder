@@ -13,41 +13,60 @@ export function chooseLargestFittingSize(min, preferred, fits) {
   return { size: Math.floor(low * 10) / 10, fits: true };
 }
 
+export function sizeInPixels(token, rootSize, parentSize) {
+  const match = /^(\d*\.?\d+)(px|rem|em)$/u.exec(token.trim());
+  if (!match) return null;
+  const value = Number(match[1]);
+  return value * (match[2] === "rem" ? rootSize : match[2] === "em" ? parentSize : 1);
+}
+
 export async function mountTextFitting(root = document) {
   const view = root.defaultView;
-  if (!view?.Intl?.Segmenter || !view.ResizeObserver || !view.document.createElement("canvas").getContext("2d")) return;
+  if (!view?.Intl?.Segmenter || !view.ResizeObserver || !view.MutationObserver
+    || !view.document.createElement("canvas").getContext("2d")) return;
   try {
     await root.fonts.load('600 16px "Noto Sans"');
     await root.fonts.ready;
-  } catch { return; }
+  } catch { /* A fallback font can still be measured. */ }
 
-  const labels = [...root.querySelectorAll('[data-fit-text="action"]')];
+  const labels = [...root.querySelectorAll("[data-fit-text]")];
   const dirty = new Set(labels);
   let frame = 0;
-  function fit(element) {
-    if (!element.isConnected || !element.clientWidth || !element.clientHeight) return;
+  function measure(element) {
+    if (!element.isConnected || !element.clientWidth) return null;
     const style = view.getComputedStyle(element);
     const width = element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    const height = element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-    if (width <= 0 || height <= 0) return;
-    const preferred = parseFloat(view.getComputedStyle(root.documentElement).fontSize);
-    const min = preferred * 0.88;
+    if (width <= 0) return null;
+    const rootSize = parseFloat(view.getComputedStyle(root.documentElement).fontSize);
+    const parentSize = parseFloat(view.getComputedStyle(element.parentElement).fontSize);
+    const preferred = sizeInPixels(style.getPropertyValue("--fit-preferred-size"), rootSize, parentSize)
+      ?? parseFloat(style.fontSize);
+    const min = Math.min(preferred, sizeInPixels(style.getPropertyValue("--fit-min-size"), rootSize, parentSize)
+      ?? preferred * 0.88);
     const text = element.textContent || "";
     const fits = (size) => {
-      const prepared = prepareWithSegments(text, `600 ${size}px "Noto Sans"`, {
-        whiteSpace: "normal", wordBreak: "normal", letterSpacing: 0,
+      const prepared = prepareWithSegments(text, `${style.fontStyle} ${style.fontWeight} ${size}px ${style.fontFamily}`, {
+        whiteSpace: "normal", wordBreak: "normal",
+        letterSpacing: style.letterSpacing === "normal" ? 0 : parseFloat(style.letterSpacing),
       });
-      return measureNaturalWidth(prepared) <= width + 0.5 && size * 1.3 <= height + 0.5;
+      return measureNaturalWidth(prepared) <= width + 0.5;
     };
-    const result = chooseLargestFittingSize(min, preferred, fits);
-    const size = `${result.size.toFixed(1)}px`;
-    if (element.style.getPropertyValue("--fit-text-size") !== size) element.style.setProperty("--fit-text-size", size);
-    element.dataset.fitState = result.fits ? "fit" : "no-fit";
+    try { return { element, preferred, ...chooseLargestFittingSize(min, preferred, fits) }; }
+    catch { return { element, preferred, size: min, fits: false }; }
   }
   function flush() {
     frame = 0;
-    for (const element of dirty) fit(element);
+    const updates = [...dirty].map(measure).filter(Boolean);
     dirty.clear();
+    for (const { element, preferred, size, fits } of updates) {
+      const nextSize = fits && size === preferred ? "" : `${size.toFixed(1)}px`;
+      if (element.style.getPropertyValue("--fit-text-size") !== nextSize) {
+        if (nextSize) element.style.setProperty("--fit-text-size", nextSize);
+        else element.style.removeProperty("--fit-text-size");
+      }
+      const state = fits ? "fit" : "no-fit";
+      if (element.dataset.fitState !== state) element.dataset.fitState = state;
+    }
   }
   function schedule(element) {
     dirty.add(element);
@@ -56,16 +75,27 @@ export async function mountTextFitting(root = document) {
   const observer = new view.ResizeObserver((entries) => {
     for (const entry of entries) schedule(entry.target);
   });
-  for (const label of labels) observer.observe(label);
-  const refit = () => {
-    clearCache();
-    for (const label of labels) schedule(label);
-  };
-  root.fonts.addEventListener?.("loadingdone", refit);
+  const mutations = new view.MutationObserver((records) => {
+    for (const record of records) {
+      const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      const label = target?.closest("[data-fit-text]");
+      if (label) schedule(label);
+    }
+  });
+  for (const label of labels) {
+    observer.observe(label);
+    mutations.observe(label, { subtree: true, childList: true, characterData: true });
+  }
+  const refit = () => { for (const label of labels) schedule(label); };
+  const fontChanged = () => { clearCache(); refit(); };
+  root.fonts.addEventListener?.("loadingdone", fontChanged);
+  view.addEventListener("resize", refit);
   refit();
   return () => {
     observer.disconnect();
-    root.fonts.removeEventListener?.("loadingdone", refit);
+    mutations.disconnect();
+    root.fonts.removeEventListener?.("loadingdone", fontChanged);
+    view.removeEventListener("resize", refit);
     if (frame) view.cancelAnimationFrame(frame);
   };
 }

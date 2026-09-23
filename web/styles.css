@@ -18,7 +18,7 @@
   color: #20231f;
   background: #f4f2ed;
   font-family: "Noto Sans", sans-serif;
-  font-size: 15px;
+  font-size: 93.75%;
   --surface: #ffffff;
   --surface-muted: #ece9e2;
   --border: #cbc7bd;
@@ -54,16 +54,20 @@ button {
 
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 
-[data-fit-text="action"] {
-  min-width: 0;
-  font-family: "Noto Sans", sans-serif;
-  font-size: var(--fit-text-size, 1rem);
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: 0;
-  overflow-wrap: break-word;
+[data-fit-text] {
+  min-inline-size: 0;
+  font-size: var(--fit-text-size, var(--fit-preferred-size, 1rem));
+  overflow-wrap: anywhere;
 }
 
+[data-fit-text="action"] {
+  --fit-preferred-size: 1rem;
+  --fit-min-size: 0.93rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+[data-fit-state="fit"] { white-space: nowrap; }
 [data-fit-state="no-fit"] { white-space: normal; }
 
 button:focus-visible, input:focus-visible, a:focus-visible {
@@ -90,8 +94,8 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 }
 
 h1, h2, p { margin: 0; }
-h1 { font-size: 19px; line-height: 1.25; font-weight: 650; }
-h2 { font-size: 15px; line-height: 1.3; font-weight: 650; }
+h1 { --fit-preferred-size: 1.25rem; --fit-min-size: 1rem; line-height: 1.25; font-weight: 650; }
+h2 { --fit-preferred-size: 1rem; --fit-min-size: 0.93rem; line-height: 1.3; font-weight: 650; }
 
 #system-status, .viewer-heading span, .section-heading span {
   margin-top: 3px;
@@ -100,6 +104,9 @@ h2 { font-size: 15px; line-height: 1.3; font-weight: 650; }
 }
 
 .toolbar, .record-actions { display: flex; gap: 8px; align-items: center; }
+.appbar > div:first-child, .dialog-title h2 { min-inline-size: 0; }
+.section-heading h2, .viewer-heading h2 { min-inline-size: 0; flex: 1 1 auto; }
+.section-heading span, .viewer-heading span { min-inline-size: 0; }
 
 .workspace {
   min-height: 0;
