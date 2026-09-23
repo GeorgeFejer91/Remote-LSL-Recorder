@@ -1,7 +1,23 @@
+@font-face {
+  font-family: "Noto Sans";
+  src: url("vendor/fonts/noto-sans-latin-400-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  src: url("vendor/fonts/noto-sans-latin-600-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
 :root {
   color: #21251f;
   background: #f3f1eb;
-  font-family: Aptos, "Segoe UI", sans-serif;
+  font-family: "Noto Sans", sans-serif;
   font-synthesis: none;
   --line: #d9d5ca;
   --muted: #6b7068;
@@ -32,6 +48,18 @@ button {
 }
 
 button:disabled { cursor: default; opacity: 0.45; }
+
+[data-fit-text="action"] {
+  min-width: 0;
+  font-family: "Noto Sans", sans-serif;
+  font-size: var(--fit-text-size, 1rem);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  overflow-wrap: break-word;
+}
+
+[data-fit-state="no-fit"] { white-space: normal; }
 
 button.secondary {
   border-color: var(--line);
@@ -94,6 +122,7 @@ main {
 }
 
 #remote-workspace { display: grid; gap: 0.75rem; }
+#remote-workspace[hidden] { display: none; }
 
 .panel {
   border: 1px solid var(--line);
@@ -105,6 +134,10 @@ main {
 
 .pairing { display: grid; gap: 0.9rem; margin-top: 8vh; text-align: center; }
 .pairing p { color: var(--muted); line-height: 1.45; }
+.pairing label { text-align: left; }
+.pairing.connected { margin-top: 0; border: 0; padding: 0.25rem; background: transparent; box-shadow: none; text-align: left; }
+.pairing.connected h2, .pairing.connected #pairing-copy, .pairing.connected #connect,
+.pairing.connected label, .pairing.connected #controller-name { display: none; }
 .status { min-height: 1.4em; font-size: 0.85rem; }
 
 .recording-panel,
@@ -138,26 +171,36 @@ input {
   background: #fff;
 }
 
+.inline-form input { flex: 1 1 auto; min-width: 0; width: auto; }
+.inline-form button { flex: 0 0 auto; min-width: 80px; }
+
 .section-heading > span { color: var(--muted); font-size: 0.75rem; }
+.stream-note { margin-top: 0.45rem; color: var(--muted); font-size: 0.72rem; line-height: 1.4; }
 .stream-list { margin-top: 0.6rem; }
 
 .stream-row {
   min-height: 48px;
+  margin: 0;
   border-top: 1px solid #ece9e1;
   padding: 0.5rem 0;
 }
 
 .stream-row:first-child { border-top: 0; }
-.stream-row input { width: 20px; min-height: 20px; accent-color: var(--green); }
-.stream-copy { min-width: 0; flex: 1; }
-.stream-copy strong, .stream-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stream-row input { flex: 0 0 20px; width: 20px; min-height: 20px; margin: 0; accent-color: var(--green); }
+.input-marker-controls label { display: flex; align-items: center; gap: 0.5rem; }
+.input-marker-controls input { width: 20px; min-height: 20px; margin: 0; padding: 0; accent-color: var(--green); }
+.stream-copy { min-width: 0; flex: 1 1 auto; }
+.stream-copy strong, .stream-copy span { display: block; overflow-wrap: anywhere; }
 .stream-copy strong { font-size: 0.88rem; }
 .stream-copy span { margin-top: 0.15rem; color: var(--muted); font-size: 0.72rem; }
-.stream-kind { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
-.stream-kind.marker { color: #865110; }
+.stream-copy .activity-live { color: var(--green); }
+.stream-copy .stream-selected { color: var(--red); }
+.mini-preview { flex: 0 0 88px; min-width: 0; color: var(--green); text-align: right; }
+.mini-preview svg { display: block; width: 100%; height: 28px; border-bottom: 1px solid var(--line); fill: none; stroke: currentColor; stroke-width: 1.5; }
+.mini-preview span { display: block; margin-top: 0.15rem; color: var(--muted); font-size: 0.68rem; overflow-wrap: anywhere; }
 .empty { padding: 1rem 0; color: var(--muted); font-size: 0.85rem; text-align: center; }
 
-.marker-list { margin: 0.55rem 0 0; padding: 0; list-style: none; }
+.marker-list { max-height: 22rem; overflow-y: auto; margin: 0.55rem 0 0; padding: 0; list-style: none; }
 .marker-list li { border-top: 1px solid #ece9e1; padding: 0.65rem 0; }
 .marker-list li:first-child { border-top: 0; }
 .marker-value { display: block; overflow-wrap: anywhere; font: 0.85rem/1.35 "Cascadia Mono", Consolas, monospace; }
@@ -176,4 +219,5 @@ footer {
   .recording-panel { align-items: flex-start; flex-direction: column; }
   .record-actions { width: 100%; }
   .record-actions button { flex: 1; }
+  .mini-preview { flex-basis: 64px; }
 }
