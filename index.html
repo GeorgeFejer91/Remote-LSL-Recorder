@@ -15,14 +15,14 @@
   <header class="appbar">
     <div>
       <span class="eyebrow">Phone companion</span>
-      <h1>Remote LSL Recorder</h1>
+      <h1 data-fit-text="heading">Remote LSL Recorder</h1>
     </div>
     <span id="connection-pill" class="pill">Not connected</span>
   </header>
 
   <main>
     <section id="pairing-panel" class="panel pairing">
-      <h2>Join the recorder</h2>
+      <h2 data-fit-text="heading">Join the recorder</h2>
       <p id="pairing-copy">This invitation gives temporary access to one recorder session.</p>
       <label for="controller-name">Your name</label>
       <input id="controller-name" type="text" maxlength="48" autocomplete="name" required>
@@ -34,7 +34,7 @@
       <section class="panel recording-panel">
         <div>
           <span class="eyebrow">Recording</span>
-          <h2 id="recording-phase">Idle</h2>
+          <h2 id="recording-phase" data-fit-text="heading">Idle</h2>
           <p id="recording-detail">No recording is active.</p>
         </div>
         <div class="record-actions">
@@ -45,7 +45,7 @@
 
       <section class="panel">
         <div class="section-heading">
-          <h2>Live streams</h2>
+          <h2 data-fit-text="heading">Live streams</h2>
           <button id="refresh-streams" type="button" class="quiet" data-fit-text="action">Refresh</button>
         </div>
         <p class="stream-note">Small preview of the first channel. XDF records all selected channels.</p>
@@ -54,7 +54,7 @@
 
       <section class="panel markers-panel">
         <div class="section-heading">
-          <h2>Recent markers</h2>
+          <h2 data-fit-text="heading">Recent markers</h2>
           <span id="marker-count">0 recent</span>
         </div>
         <ol id="marker-list" class="marker-list"></ol>
@@ -62,7 +62,7 @@
 
       <section class="panel">
         <div class="section-heading">
-          <h2>Session</h2>
+          <h2 data-fit-text="heading">Session</h2>
           <span id="revision">Revision 0</span>
         </div>
         <label for="participant-id">Participant ID</label>
@@ -73,7 +73,7 @@
       </section>
 
       <section class="panel input-marker-controls">
-        <h2>Computer input markers</h2>
+        <h2 data-fit-text="heading">Computer input markers</h2>
         <label><input id="keyboard-markers" type="checkbox"> Keyboard press and release markers</label>
         <label><input id="mouse-markers" type="checkbox"> Mouse click markers with coordinates</label>
       </section>
