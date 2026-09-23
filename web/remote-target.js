@@ -4,8 +4,18 @@ import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 
 let active;
+export const REMOTE_SCOPES = Object.freeze(["pairing.request", "recording.observe", "recording.control"]);
 
-function compactState(snapshot) {
+export function compactState(snapshot) {
+  if (snapshot.remote.approval !== "approved") {
+    return { revision: snapshot.revision, approval: snapshot.remote.approval };
+  }
+  const latestMarkerByStream = new Map();
+  for (const marker of snapshot.markers) {
+    if (!latestMarkerByStream.has(marker.streamId)) {
+      latestMarkerByStream.set(marker.streamId, marker.sequence);
+    }
+  }
   const streams = snapshot.streams.slice(0, 18).map((stream) => ({
     id: stream.id,
     name: stream.name.slice(0, 80),
@@ -13,6 +23,14 @@ function compactState(snapshot) {
     selected: stream.selected,
     connected: stream.connected,
     isMarker: stream.isMarker,
+    channelCount: stream.channelCount,
+    channelLabel: stream.channels[0]?.label.slice(0, 40) || "Ch 1",
+    channelUnit: stream.channels[0]?.unit.slice(0, 20) || "",
+    lastSample: stream.isMarker
+      ? latestMarkerByStream.get(stream.id) ?? null
+      : stream.preview.at(-1)?.timestamp ?? null,
+    sampleValue: stream.isMarker || !Number.isFinite(stream.preview.at(-1)?.values[0])
+      ? null : Number(stream.preview.at(-1).values[0].toPrecision(5)),
   }));
   const markers = snapshot.markers.slice(0, 18).map((marker) => ({
     sequence: marker.sequence,
@@ -23,6 +41,10 @@ function compactState(snapshot) {
   }));
   const compact = {
     revision: snapshot.revision,
+    controlRevision: snapshot.controlRevision,
+    approval: snapshot.remote.approval,
+    keyboardMarkers: snapshot.keyboardMarkers,
+    mouseMarkers: snapshot.mouseMarkers,
     participantId: snapshot.participantId,
     streamTotal: snapshot.streams.length,
     markerTotal: snapshot.markers.length,
@@ -71,15 +93,17 @@ export async function startRemoteTarget(invite, onStatus) {
     peerId: `target_${randomToken(12)}`,
     capabilities: ["command-ack", "state-snapshot", "latest-state"],
     requestedScopes: [],
-    grantedScopes: ["recording.observe", "recording.control"],
+    grantedScopes: REMOTE_SCOPES,
     getState: () => context.snapshot,
     applyCommand: async ({ scope, action, args, expectedRevision }) => {
-      if (scope !== "recording.control") {
+      if (!((scope === "pairing.request" && action === "request-access")
+        || scope === "recording.control")) {
         return { ok: false, revision: context.snapshot.revision, error: "scope_denied" };
       }
       const outcome = await invoke("remote_command", {
         request: {
           grantToken: invite.grantToken,
+          scope,
           action,
           args,
           expectedRevision,
@@ -118,16 +142,21 @@ export async function startRemoteTarget(invite, onStatus) {
   connection.addEventListener("phasechange", (event) => {
     context.phase = safeToken(event.detail.phase, "protocol");
     context.connected = event.detail.phase === "ready";
+    if (!context.connected) {
+      window.clearInterval(context.heartbeat);
+      context.heartbeat = undefined;
+    }
     void report();
   });
   connection.addEventListener("ready", () => {
     context.phase = "ready";
     context.connected = true;
+    window.clearInterval(context.heartbeat);
     context.heartbeat = window.setInterval(() => {
       if (connection.phase === "ready") {
         connection.publishState(context.snapshot, { revision: context.snapshot.revision });
       }
-    }, 250);
+    }, 750);
     void report();
   });
   connection.addEventListener("protocolerror", () => {

@@ -71,3 +71,32 @@ decision and link both entries.
 - Consequences: Marker fidelity is testable independently of chart cadence.
   Device-specific data and renderer state cannot become recording authority.
 - Supersedes: None
+
+## D-0005 — Shared bounded text and independent remote control revision
+
+- Date: 2026-09-23
+- Status: Accepted
+- Context: The installed viewer and phone controller need flexible action text,
+  while frequent marker events can otherwise invalidate every remote action.
+- Decision: Copy one locked Pretext fitter and Noto Sans face into both static
+  interfaces for bounded action labels. Keep arbitrary data text DOM-managed
+  with wrapping or scrolling. Expose a Rust control revision for remote action
+  preconditions while the full state revision still tracks marker events.
+- Consequences: Vendor assets and both UI surfaces need a sync check; remote
+  actions remain guarded against competing control mutations during marker
+  traffic. Real WebView and phone rendering remain separate evidence gates.
+- Supersedes: None
+
+## D-0006 — Phone mini viewer from bounded state summaries
+
+- Date: 2026-09-23
+- Status: Accepted
+- Context: The phone needs a small live view without transferring full LSL
+  buffers or capturing the desktop screen.
+- Decision: Reuse the BRSP latest-state lane over VDO.Ninja data-only WebRTC.
+  Send one first-channel value and sample identifier per stream; build the
+  short trace and freshness indicator in the phone browser. Continue sending
+  bounded recent marker text and LSL timestamps.
+- Consequences: No second media track or screen-capture grant is needed. The
+  trace is an activity preview; XDF remains the full-fidelity record.
+- Supersedes: None

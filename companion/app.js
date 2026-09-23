@@ -1,10 +1,12 @@
 import { BRSPConnection, randomToken } from "./vendor/brsp.js";
 import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
-import { commandForParticipant, formatBytes, parseInvite } from "./core.js";
+import { commandForParticipant, formatBytes, observeActivity, parseInvite, sparklinePath } from "./core.js";
+import { mountTextFitting } from "./text-fit.js";
 
 const byId = (id) => document.getElementById(id);
 const elements = {
   connect: byId("connect"),
+  name: byId("controller-name"),
   status: byId("connection-status"),
   pill: byId("connection-pill"),
   pairing: byId("pairing-panel"),
@@ -13,6 +15,8 @@ const elements = {
   participant: byId("participant-id"),
   applyParticipant: byId("apply-participant"),
   refresh: byId("refresh-streams"),
+  keyboardMarkers: byId("keyboard-markers"),
+  mouseMarkers: byId("mouse-markers"),
   streams: byId("stream-list"),
   markers: byId("marker-list"),
   markerCount: byId("marker-count"),
@@ -32,6 +36,7 @@ let transport;
 let connection;
 let latest;
 let pending = 0;
+const streamHistory = new Map();
 
 if (!invite) {
   elements.connect.disabled = true;
@@ -52,9 +57,17 @@ elements.start.addEventListener("click", () => send({
 elements.stop.addEventListener("click", () => send({
   scope: "recording.control", action: "stop-recording", args: {},
 }));
+for (const checkbox of [elements.keyboardMarkers, elements.mouseMarkers]) {
+  checkbox.addEventListener("change", () => send({
+    scope: "recording.control", action: "set-input-markers",
+    args: { keyboard: elements.keyboardMarkers.checked, mouse: elements.mouseMarkers.checked },
+  }));
+}
 
 async function connect() {
   if (!invite || connection) return;
+  elements.name.value = elements.name.value.trim();
+  if (!elements.name.reportValidity()) return;
   elements.connect.disabled = true;
   setStatus("Connecting to the desktop app…");
   try {
@@ -71,20 +84,28 @@ async function connect() {
       sharedSecret: invite.secret,
       peerId: `controller_${randomToken(12)}`,
       capabilities: ["command-ack", "state-snapshot", "latest-state"],
-      requestedScopes: ["recording.observe", "recording.control"],
+      requestedScopes: ["pairing.request", "recording.observe", "recording.control"],
       grantedScopes: [],
     });
-    transport.addEventListener("status", (event) => setStatus(event.detail.message));
+    transport.addEventListener("status", (event) => {
+      if (connection && event.detail.phase === "closed") disconnect("Session ended. Start a new phone session on the desktop and scan its QR code.");
+      else setStatus(event.detail.message);
+    });
     connection.addEventListener("phasechange", (event) => setStatus(event.detail.message));
     connection.addEventListener("ready", () => {
-      elements.pill.textContent = "Connected";
-      elements.pill.classList.add("live");
-      elements.workspace.hidden = false;
-      setStatus("Connected. Waiting for recorder state…");
+      elements.pill.textContent = "Approval needed";
+      setStatus("Secure link ready. Asking the computer for approval…");
+      connection.sendCommand("pairing.request", "request-access", { name: elements.name.value });
     });
     connection.addEventListener("snapshot", (event) => acceptState(event.detail.state));
     connection.addEventListener("state", (event) => acceptState(event.detail.state));
     connection.addEventListener("commandapplied", (event) => {
+      if (event.detail.pending?.scope === "pairing.request") {
+        setStatus(event.detail.ok
+          ? "Waiting for someone at the computer to approve."
+          : "Access request rejected. Start a new pairing session on the computer.");
+        return;
+      }
       pending = Math.max(0, pending - 1);
       setControlsBusy(false);
       if (!event.detail.ok) {
@@ -97,20 +118,23 @@ async function connect() {
     });
     connection.addEventListener("protocolerror", () => disconnect("The secure remote session ended."));
     connection.addEventListener("phasechange", (event) => {
-      if (event.detail.phase === "disconnected") disconnect("The desktop disconnected.");
+      if (["disconnected", "closed", "error"].includes(event.detail.phase)) {
+        disconnect("Session ended. Start a new phone session on the desktop and scan its QR code.");
+      }
     });
     await transport.start();
   } catch (error) {
     await closeConnection();
+    elements.pairing.classList.remove("connected");
     elements.connect.disabled = false;
     setStatus(error instanceof Error ? error.message : String(error));
   }
 }
 
 function send({ scope, action, args }) {
-  if (!connection || connection.phase !== "ready" || !latest) return;
+  if (!connection || connection.phase !== "ready" || latest?.approval !== "approved") return;
   try {
-    connection.sendCommand(scope, action, args, { expectedRevision: latest.revision });
+    connection.sendCommand(scope, action, args, { expectedRevision: latest.controlRevision });
     pending += 1;
     setControlsBusy(true);
     setStatus("Waiting for desktop confirmation…");
@@ -122,10 +146,31 @@ function send({ scope, action, args }) {
 function acceptState(state) {
   if (!state || !Number.isSafeInteger(state.revision)) return;
   if (latest && state.revision < latest.revision) return;
+  const previousApproval = latest?.approval;
   latest = state;
-  elements.participant.value = state.participantId ?? "";
+  if (state.approval === "denied") {
+    disconnect("Access was denied on the computer. Scan a new QR code to try again.");
+    return;
+  }
+  if (state.approval !== "approved") {
+    elements.workspace.hidden = true;
+    elements.pill.textContent = "Approval needed";
+    return;
+  }
+  if (previousApproval !== "approved") {
+    elements.pill.textContent = "Connected";
+    elements.pill.classList.add("live");
+    elements.pairing.classList.add("connected");
+    elements.workspace.hidden = false;
+    setStatus("Approved. Recorder state is synchronized.");
+  }
+  if (document.activeElement !== elements.participant) {
+    elements.participant.value = state.participantId ?? "";
+  }
   elements.revision.textContent = `Revision ${state.revision}`;
   renderRecording(state.recording);
+  elements.keyboardMarkers.checked = Boolean(state.keyboardMarkers);
+  elements.mouseMarkers.checked = Boolean(state.mouseMarkers);
   renderStreams(state.streams ?? []);
   renderMarkers(state.markers ?? []);
 }
@@ -133,7 +178,9 @@ function acceptState(state) {
 function renderRecording(recording = {}) {
   const active = recording.phase === "recording";
   elements.recordingPhase.textContent = titleCase(recording.phase ?? "idle");
-  elements.recordingDetail.textContent = recording.error || formatBytes(recording.bytesWritten ?? 0);
+  elements.recordingDetail.textContent = recording.error || (active
+    ? `${formatBytes(recording.bytesWritten ?? 0)} written to XDF`
+    : formatBytes(recording.bytesWritten ?? 0));
   elements.start.disabled = active || pending > 0;
   elements.stop.disabled = !active || pending > 0;
 }
@@ -148,7 +195,13 @@ function renderStreams(streams) {
     return;
   }
   const recording = latest?.recording?.phase === "recording";
+  const now = Date.now();
+  const visibleIds = new Set(streams.map((stream) => stream.id));
+  for (const id of streamHistory.keys()) {
+    if (!visibleIds.has(id)) streamHistory.delete(id);
+  }
   for (const stream of streams) {
+    const activity = observeActivity(streamHistory, stream, now);
     const row = document.createElement("label");
     row.className = "stream-row";
     const checkbox = document.createElement("input");
@@ -164,15 +217,31 @@ function renderStreams(streams) {
     copy.className = "stream-copy";
     copy.append(
       textElement("strong", stream.name || "Unnamed stream"),
-      textElement("span", `${stream.streamType || "untyped"} · ${stream.connected ? "live" : "waiting"}`),
+      textElement("span", `${stream.streamType || "untyped"} · ${stream.channelCount || 1} ch · ${activity.status}`,
+        activity.recent ? "activity-live" : ""),
     );
-    row.append(
-      checkbox,
-      copy,
-      textElement("span", stream.isMarker ? "marker" : "signal", `stream-kind${stream.isMarker ? " marker" : ""}`),
-    );
+    if (recording && stream.selected) {
+      copy.append(textElement("span", "Selected for XDF", "stream-selected"));
+    }
+    row.append(checkbox, copy);
+    if (!stream.isMarker) row.append(miniPreview(stream, activity));
     elements.streams.append(row);
   }
+}
+
+function miniPreview(stream, activity) {
+  const preview = document.createElement("span");
+  preview.className = "mini-preview";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 88 28");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", sparklinePath(activity.values));
+  svg.append(path);
+  preview.append(svg);
+  const value = stream.sampleValue == null ? "—" : `${stream.sampleValue}${stream.channelUnit ? ` ${stream.channelUnit}` : ""}`;
+  preview.append(textElement("span", `${stream.channelLabel || "Ch 1"}: ${value}`));
+  return preview;
 }
 
 function renderMarkers(markers) {
@@ -203,6 +272,8 @@ function setControlsBusy(isBusy) {
   elements.stop.disabled = isBusy || !active;
   elements.applyParticipant.disabled = isBusy || active;
   elements.refresh.disabled = isBusy;
+  elements.keyboardMarkers.disabled = isBusy;
+  elements.mouseMarkers.disabled = isBusy;
   for (const checkbox of elements.streams.querySelectorAll("input[type=checkbox]")) {
     checkbox.disabled = isBusy || active;
   }
@@ -213,9 +284,15 @@ function setStatus(message) {
 }
 
 function disconnect(message) {
+  latest = undefined;
+  streamHistory.clear();
   elements.pill.textContent = "Disconnected";
   elements.pill.classList.remove("live");
+  elements.pairing.classList.remove("connected");
+  elements.pairingCopy.textContent = "Start a new phone session on the desktop and scan its QR code.";
+  elements.connect.disabled = true;
   elements.workspace.hidden = true;
+  pending = 0;
   setStatus(message);
   void closeConnection();
 }
@@ -239,3 +316,4 @@ function titleCase(value) {
 }
 
 window.addEventListener("pagehide", () => { void closeConnection(); }, { once: true });
+void mountTextFitting();

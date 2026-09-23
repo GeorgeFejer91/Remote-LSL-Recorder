@@ -16,8 +16,8 @@
       <p id="system-status" role="status">Starting…</p>
     </div>
     <div class="toolbar">
-      <button id="refresh-streams" type="button" class="secondary">Refresh streams</button>
-      <button id="remote-open" type="button" class="secondary">Phone remote</button>
+      <button id="refresh-streams" type="button" class="secondary" data-fit-text="action">Refresh streams</button>
+      <button id="remote-open" type="button" class="secondary" data-fit-text="action">Phone remote</button>
     </div>
   </header>
 
@@ -30,7 +30,7 @@
           <input id="participant-id" name="participantId" maxlength="64" autocomplete="off" required>
           <label for="output-directory">Recording folder</label>
           <input id="output-directory" name="outputDirectory" autocomplete="off" required>
-          <button type="submit" class="secondary">Apply session</button>
+          <button type="submit" class="secondary" data-fit-text="action">Apply session</button>
         </form>
       </section>
 
@@ -48,8 +48,9 @@
     <section class="viewer" aria-label="Live LSL viewer">
       <div class="viewer-heading">
         <h2>Signals</h2>
-        <span>Last 300 display samples · up to 16 channels per stream</span>
+        <span>Last 300 display samples · separate scale for each channel</span>
       </div>
+      <div id="viewer-streams" class="viewer-streams" role="group" aria-label="Visible signal streams"></div>
       <div id="charts" class="charts">
         <p class="empty-state">Numeric streams will appear here.</p>
       </div>
@@ -58,6 +59,10 @@
         <div class="viewer-heading">
           <h2 id="marker-heading">Markers</h2>
           <span id="marker-count">No markers received</span>
+        </div>
+        <div class="input-marker-controls" role="group" aria-label="Recorder window input markers">
+          <label><input id="keyboard-markers" type="checkbox"> Keyboard press and release markers</label>
+          <label><input id="mouse-markers" type="checkbox"> Mouse click markers with coordinates</label>
         </div>
         <div class="marker-table-wrap">
           <table>
@@ -82,8 +87,8 @@
       </div>
     </div>
     <div class="record-actions">
-      <button id="record-start" type="button" class="primary">Start recording</button>
-      <button id="record-stop" type="button" class="danger" disabled>Stop recording</button>
+      <button id="record-start" type="button" class="primary" data-fit-text="action">Start recording</button>
+      <button id="record-stop" type="button" class="danger" data-fit-text="action" disabled>Stop recording</button>
     </div>
   </footer>
 
@@ -94,17 +99,22 @@
     </form>
     <div id="remote-idle">
       <p>Start a fresh, temporary pairing session. Nothing connects before you press Start.</p>
-      <button id="remote-start" type="button" class="primary">Start phone access</button>
+      <button id="remote-start" type="button" class="primary" data-fit-text="action">Start phone access</button>
     </div>
     <div id="remote-active" hidden>
       <div id="remote-qr" class="qr" aria-label="Phone pairing QR code"></div>
-      <p>Scan with the phone camera, then tap Connect in the browser.</p>
+      <p>Scan with the phone camera, enter a name, and tap Connect. Approve the request here before phone control starts.</p>
       <a id="remote-link" href="#" target="_blank" rel="noreferrer">Open companion in this browser</a>
+      <div id="remote-request" hidden>
+        <p>Phone named <strong id="remote-request-name"></strong> requests access to this recorder.</p>
+        <button id="remote-approve" type="button" class="primary" data-fit-text="action">Allow</button>
+        <button id="remote-deny" type="button" class="secondary" data-fit-text="action">Deny</button>
+      </div>
       <dl class="remote-status">
         <div><dt>Status</dt><dd id="remote-phase">Waiting</dd></div>
         <div><dt>Route</dt><dd id="remote-route">Unknown</dd></div>
       </dl>
-      <button id="remote-stop" type="button" class="danger">Stop phone access</button>
+      <button id="remote-stop" type="button" class="danger" data-fit-text="action">Stop phone access</button>
     </div>
   </dialog>
 </body>

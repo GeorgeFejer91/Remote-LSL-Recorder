@@ -1,12 +1,13 @@
 use crate::{
     preview::PreviewService,
     types::{
-        AppSnapshot, Authority, RecordingView, RemoteCommandOutcome, RemoteCommandRequest,
-        RemoteInvite, RemoteSession, RemoteView,
+        AppSnapshot, Authority, MAX_MARKERS, MarkerEvent, RecordingView, RemoteCommandOutcome,
+        RemoteCommandRequest, RemoteInvite, RemoteSession, RemoteView,
     },
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Utc;
+use labstream::{Format, Outlet, Query, StreamInfo};
 use qrcode::{QrCode, render::svg};
 use rand::RngCore;
 use serde::Deserialize;
@@ -36,6 +37,8 @@ struct RecordingProcess {
 pub struct AppState {
     authority: Arc<Mutex<Authority>>,
     preview: PreviewService,
+    input_source_id: String,
+    input_outlet: Mutex<Option<Outlet>>,
     recorder: Mutex<Option<RecordingProcess>>,
     engine_directory: PathBuf,
     shutting_down: AtomicBool,
@@ -43,8 +46,12 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(output_directory: PathBuf, engine_directory: PathBuf) -> Self {
+        let input_source_id = format!("remote-lsl-recorder-input-{}", random_token(12));
         let authority = Authority {
             revision: 0,
+            control_revision: 0,
+            keyboard_markers: false,
+            mouse_markers: false,
             participant_id: String::new(),
             output_directory: output_directory.display().to_string(),
             streams: HashMap::new(),
@@ -58,7 +65,9 @@ impl AppState {
         };
         Self {
             authority: Arc::new(Mutex::new(authority)),
-            preview: PreviewService::new(),
+            preview: PreviewService::new(input_source_id.clone()),
+            input_source_id,
+            input_outlet: Mutex::new(None),
             recorder: Mutex::new(None),
             engine_directory,
             shutting_down: AtomicBool::new(false),
@@ -107,6 +116,7 @@ impl AppState {
         state.output_directory = output_directory.display().to_string();
         if changed {
             state.revision += 1;
+            state.control_revision += 1;
         }
         Ok(state.snapshot())
     }
@@ -129,8 +139,92 @@ impl AppState {
         };
         if changed {
             state.revision += 1;
+            state.control_revision += 1;
         }
         Ok(state.snapshot())
+    }
+
+    pub fn set_input_markers(&self, keyboard: bool, mouse: bool) -> Result<AppSnapshot, String> {
+        if keyboard || mouse {
+            self.ensure_input_outlet()?;
+        }
+        let mut state = self
+            .authority
+            .lock()
+            .map_err(|_| "State lock failed.".to_string())?;
+        if state.keyboard_markers != keyboard || state.mouse_markers != mouse {
+            state.keyboard_markers = keyboard;
+            state.mouse_markers = mouse;
+            state.revision += 1;
+            state.control_revision += 1;
+        }
+        Ok(state.snapshot())
+    }
+
+    pub fn emit_input_marker(&self, kind: String, detail: String) -> Result<(), String> {
+        validate_input_marker(&kind, &detail)?;
+        let enabled = {
+            let state = self
+                .authority
+                .lock()
+                .map_err(|_| "State lock failed.".to_string())?;
+            match kind.as_str() {
+                "key-down" | "key-up" => state.keyboard_markers,
+                "mouse-click" => state.mouse_markers,
+                _ => false,
+            }
+        };
+        if !enabled {
+            return Err("This input marker source is disabled.".into());
+        }
+        let value = format!("{kind} {detail}");
+        let timestamp = labstream::clock();
+        self.input_outlet
+            .lock()
+            .map_err(|_| "Input outlet lock failed.".to_string())?
+            .as_ref()
+            .ok_or_else(|| "Input marker stream is unavailable.".to_string())?
+            .push_text_at(&value, timestamp)
+            .map_err(|error| format!("Could not publish input marker: {error}"))?;
+        let mut state = self
+            .authority
+            .lock()
+            .map_err(|_| "State lock failed.".to_string())?;
+        state.next_marker_sequence += 1;
+        let sequence = state.next_marker_sequence;
+        state.markers.push_back(MarkerEvent {
+            sequence,
+            stream_id: format!("source:{}", self.input_source_id),
+            stream_name: "Recorder input".into(),
+            lsl_timestamp: timestamp,
+            received_at: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            value,
+        });
+        while state.markers.len() > MAX_MARKERS {
+            state.markers.pop_front();
+        }
+        state.revision += 1;
+        Ok(())
+    }
+
+    fn ensure_input_outlet(&self) -> Result<(), String> {
+        let mut outlet = self
+            .input_outlet
+            .lock()
+            .map_err(|_| "Input outlet lock failed.".to_string())?;
+        if outlet.is_none() {
+            let info = StreamInfo::builder("Recorder input", "Markers", Format::String)
+                .irregular()
+                .channel_count(1)
+                .source_id(&self.input_source_id)
+                .build()
+                .map_err(|error| format!("Could not describe input marker stream: {error}"))?;
+            *outlet = Some(
+                Outlet::new(info)
+                    .map_err(|error| format!("Could not publish input marker stream: {error}"))?,
+            );
+        }
+        Ok(())
     }
 
     pub fn start_recording(&self) -> Result<AppSnapshot, String> {
@@ -142,7 +236,7 @@ impl AppState {
             return Err("A recording is already active.".into());
         }
 
-        let (participant_id, output_directory, queries) = {
+        let (participant_id, output_directory, mut queries) = {
             let state = self
                 .authority
                 .lock()
@@ -154,11 +248,14 @@ impl AppState {
                 .iter()
                 .filter_map(|id| state.streams.get(id).map(|record| record.query.clone()))
                 .collect::<Vec<_>>();
-            if queries.is_empty() {
+            if queries.is_empty() && !state.keyboard_markers && !state.mouse_markers {
                 return Err("Select at least one available LSL stream.".into());
             }
             (participant, output, queries)
         };
+
+        self.ensure_input_outlet()?;
+        queries.push(Query::source_id(&self.input_source_id).as_str().to_string());
 
         let executable = self.engine_directory.join("LabRecorderCLI.exe");
         let lsl_library = self.engine_directory.join("lsl.dll");
@@ -216,6 +313,7 @@ impl AppState {
             error: None,
         };
         state.revision += 1;
+        state.control_revision += 1;
         state.log("Recording started.");
         Ok(state.snapshot())
     }
@@ -275,6 +373,7 @@ impl AppState {
         state.recording.error =
             (!status.success()).then(|| format!("LabRecorder exited with {status}."));
         state.revision += 1;
+        state.control_revision += 1;
         state.log(if status.success() {
             "Recording stopped cleanly.".to_string()
         } else {
@@ -303,8 +402,11 @@ impl AppState {
             phase: "waiting".into(),
             route: "unknown".into(),
             controller_connected: false,
+            approval: "waiting".into(),
+            controller_name: None,
         };
         state.revision += 1;
+        state.control_revision += 1;
         Ok(RemoteInvite {
             room,
             secret,
@@ -322,6 +424,7 @@ impl AppState {
         state.remote_session = None;
         state.remote = RemoteView::default();
         state.revision += 1;
+        state.control_revision += 1;
         Ok(state.snapshot())
     }
 
@@ -348,7 +451,32 @@ impl AppState {
         state.remote.phase = phase;
         state.remote.route = route;
         state.remote.controller_connected = connected;
+        if matches!(
+            state.remote.phase.as_str(),
+            "disconnected" | "closed" | "error"
+        ) {
+            state.remote_session = None;
+            state.remote.active = false;
+            state.remote.approval = "revoked".into();
+            state.remote.controller_name = None;
+            state.revision += 1;
+            state.control_revision += 1;
+        }
         Ok(())
+    }
+
+    pub fn decide_remote(&self, approved: bool) -> Result<AppSnapshot, String> {
+        let mut state = self
+            .authority
+            .lock()
+            .map_err(|_| "State lock failed.".to_string())?;
+        if state.remote_session.is_none() || state.remote.approval != "pending" {
+            return Err("No phone is waiting for approval.".into());
+        }
+        state.remote.approval = if approved { "approved" } else { "denied" }.into();
+        state.revision += 1;
+        state.control_revision += 1;
+        Ok(state.snapshot())
     }
 
     pub fn remote_command(
@@ -356,7 +484,7 @@ impl AppState {
         request: RemoteCommandRequest,
     ) -> Result<RemoteCommandOutcome, String> {
         let revision = {
-            let state = self
+            let mut state = self
                 .authority
                 .lock()
                 .map_err(|_| "State lock failed.".to_string())?;
@@ -367,15 +495,40 @@ impl AppState {
             if session.grant_token != request.grant_token {
                 return Err("Remote grant was rejected.".into());
             }
-            if let Some(expected) = request.expected_revision
-                && expected != state.revision
-            {
+            if request.action == "request-access" {
+                if request.scope != "pairing.request" || state.remote.approval != "waiting" {
+                    return Ok(rejected_command(state.revision, "request_denied"));
+                }
+                let args: PairingArgs = serde_json::from_value(request.args)
+                    .map_err(|_| "Invalid pairing request.".to_string())?;
+                let name = args.name.trim();
+                if name.is_empty()
+                    || name.chars().count() > 48
+                    || name.chars().any(char::is_control)
+                {
+                    return Err("Phone name must contain 1 to 48 printable characters.".into());
+                }
+                state.remote.controller_name = Some(name.to_string());
+                state.remote.approval = "pending".into();
+                state.revision += 1;
+                state.control_revision += 1;
                 return Ok(RemoteCommandOutcome {
-                    ok: false,
+                    ok: true,
                     revision: state.revision,
-                    result: serde_json::Value::Null,
-                    error: Some("revision_conflict".into()),
+                    result: json!({ "requested": true }),
+                    error: None,
                 });
+            }
+            if request.scope != "recording.control" {
+                return Ok(rejected_command(state.revision, "scope_denied"));
+            }
+            if state.remote.approval != "approved" {
+                return Ok(rejected_command(state.revision, "approval_required"));
+            }
+            if let Some(expected) = request.expected_revision
+                && expected != state.control_revision
+            {
+                return Ok(rejected_command(state.revision, "revision_conflict"));
             }
             state.revision
         };
@@ -409,13 +562,14 @@ impl AppState {
                 let snapshot = self.refresh_streams()?;
                 json!({ "streamCount": snapshot.streams.len() })
             }
+            "set-input-markers" => {
+                let args: InputMarkerArgs = serde_json::from_value(request.args)
+                    .map_err(|_| "Invalid input marker command.".to_string())?;
+                let snapshot = self.set_input_markers(args.keyboard, args.mouse)?;
+                json!({ "keyboard": snapshot.keyboard_markers, "mouse": snapshot.mouse_markers })
+            }
             _ => {
-                return Ok(RemoteCommandOutcome {
-                    ok: false,
-                    revision,
-                    result: serde_json::Value::Null,
-                    error: Some("unsupported_command".into()),
-                });
+                return Ok(rejected_command(revision, "unsupported_command"));
             }
         };
         let current = self.snapshot()?.revision;
@@ -432,6 +586,9 @@ impl AppState {
             let _ = self.stop_recording();
         }
         let _ = self.stop_remote();
+        if let Ok(mut outlet) = self.input_outlet.lock() {
+            outlet.take();
+        }
     }
 
     pub fn begin_shutdown(&self) -> bool {
@@ -471,6 +628,7 @@ impl AppState {
             state.recording.bytes_written = bytes;
             state.recording.error = Some(format!("LabRecorder exited unexpectedly with {status}."));
             state.revision += 1;
+            state.control_revision += 1;
         }
         Ok(())
     }
@@ -484,6 +642,7 @@ impl AppState {
             state.recording.bytes_written = bytes;
             state.recording.error = Some(message.clone());
             state.revision += 1;
+            state.control_revision += 1;
             state.log(message.clone());
         }
         message
@@ -501,6 +660,28 @@ struct ParticipantArgs {
 struct StreamSelectionArgs {
     stream_id: String,
     selected: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PairingArgs {
+    name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InputMarkerArgs {
+    keyboard: bool,
+    mouse: bool,
+}
+
+fn rejected_command(revision: u64, error: &str) -> RemoteCommandOutcome {
+    RemoteCommandOutcome {
+        ok: false,
+        revision,
+        result: serde_json::Value::Null,
+        error: Some(error.into()),
+    }
 }
 
 fn validate_participant(value: &str) -> Result<String, String> {
@@ -575,6 +756,16 @@ fn validate_status_token(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_input_marker(kind: &str, detail: &str) -> Result<(), String> {
+    if !matches!(kind, "key-down" | "key-up" | "mouse-click") {
+        return Err("Input marker kind is invalid.".into());
+    }
+    if detail.is_empty() || detail.chars().count() > 256 || detail.chars().any(char::is_control) {
+        return Err("Input marker detail is invalid.".into());
+    }
+    Ok(())
+}
+
 fn ensure_empty_object(value: &serde_json::Value) -> Result<(), String> {
     match value {
         serde_json::Value::Object(map) if map.is_empty() => Ok(()),
@@ -620,5 +811,170 @@ mod tests {
         let name = path.file_name().unwrap().to_string_lossy();
         assert!(name.starts_with("P_001_"));
         assert!(name.ends_with(".xdf"));
+    }
+
+    #[test]
+    fn marker_updates_do_not_invalidate_remote_control_revision() {
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        let invite = app.start_remote().unwrap();
+        app.remote_command(RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "pairing.request".into(),
+            action: "request-access".into(),
+            args: json!({ "name": "Phone" }),
+            expected_revision: None,
+        })
+        .unwrap();
+        app.decide_remote(true).unwrap();
+        let control_revision = app.snapshot().unwrap().control_revision;
+        {
+            let mut state = app.authority.lock().unwrap();
+            state.revision += 1;
+            state.next_marker_sequence += 1;
+        }
+        let outcome = app
+            .remote_command(RemoteCommandRequest {
+                grant_token: invite.grant_token,
+                scope: "recording.control".into(),
+                action: "unknown-action".into(),
+                args: json!({}),
+                expected_revision: Some(control_revision),
+            })
+            .unwrap();
+        assert_eq!(outcome.error.as_deref(), Some("unsupported_command"));
+    }
+
+    #[test]
+    fn phone_commands_require_named_local_approval_and_disconnect_revokes_it() {
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        let invite = app.start_remote().unwrap();
+        let command = || RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "recording.control".into(),
+            action: "unknown-action".into(),
+            args: json!({}),
+            expected_revision: None,
+        };
+        assert_eq!(
+            app.remote_command(command()).unwrap().error.as_deref(),
+            Some("approval_required")
+        );
+        let requested = app
+            .remote_command(RemoteCommandRequest {
+                grant_token: invite.grant_token.clone(),
+                scope: "pairing.request".into(),
+                action: "request-access".into(),
+                args: json!({ "name": "Alice's phone" }),
+                expected_revision: None,
+            })
+            .unwrap();
+        assert!(requested.ok);
+        let pending = app.snapshot().unwrap();
+        assert_eq!(pending.remote.approval, "pending");
+        assert_eq!(
+            pending.remote.controller_name.as_deref(),
+            Some("Alice's phone")
+        );
+        assert_eq!(
+            app.remote_command(command()).unwrap().error.as_deref(),
+            Some("approval_required")
+        );
+        app.decide_remote(true).unwrap();
+        assert_eq!(
+            app.remote_command(command()).unwrap().error.as_deref(),
+            Some("unsupported_command")
+        );
+        app.report_remote_status(
+            invite.grant_token.clone(),
+            "disconnected".into(),
+            "unknown".into(),
+            false,
+        )
+        .unwrap();
+        assert!(app.remote_command(command()).is_err());
+
+        let next = app.start_remote().unwrap();
+        app.remote_command(RemoteCommandRequest {
+            grant_token: next.grant_token.clone(),
+            scope: "pairing.request".into(),
+            action: "request-access".into(),
+            args: json!({ "name": "Bob" }),
+            expected_revision: None,
+        })
+        .unwrap();
+        app.decide_remote(false).unwrap();
+        assert_eq!(app.snapshot().unwrap().remote.approval, "denied");
+        assert_eq!(
+            app.remote_command(RemoteCommandRequest {
+                grant_token: next.grant_token,
+                scope: "recording.control".into(),
+                action: "unknown-action".into(),
+                args: json!({}),
+                expected_revision: None,
+            })
+            .unwrap()
+            .error
+            .as_deref(),
+            Some("approval_required")
+        );
+    }
+
+    #[test]
+    fn input_markers_reject_unbounded_or_unknown_events() {
+        assert!(validate_input_marker("key-down", r#"{"key":"a"}"#).is_ok());
+        assert!(validate_input_marker("pointer-move", "x=1").is_err());
+        assert!(validate_input_marker("mouse-click", &"x".repeat(257)).is_err());
+    }
+
+    #[test]
+    fn enabled_input_markers_reach_the_authoritative_timeline() {
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        assert!(
+            app.emit_input_marker("key-down".into(), "a".into())
+                .is_err()
+        );
+        app.set_input_markers(true, false).unwrap();
+        let control_revision = app.snapshot().unwrap().control_revision;
+        app.emit_input_marker("key-down".into(), "a".into())
+            .unwrap();
+        let snapshot = app.snapshot().unwrap();
+        assert_eq!(snapshot.control_revision, control_revision);
+        assert_eq!(snapshot.markers[0].value, "key-down a");
+        assert!(snapshot.markers[0].lsl_timestamp.is_finite());
+        assert!(
+            app.emit_input_marker("mouse-click".into(), "x=1".into())
+                .is_err()
+        );
+    }
+
+    #[test]
+    #[ignore = "requires the pinned Windows LabRecorder engine; run explicitly for an XDF smoke test"]
+    fn labrecorder_captures_input_markers() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.for-ai-local");
+        let output = root.join(format!("input-marker-smoke-{}", random_token(6)));
+        let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../vendor/labrecorder-win");
+        let app = AppState::new(output.clone(), engine);
+        app.configure_session("INPUT_TEST".into(), output.display().to_string())
+            .unwrap();
+        app.set_input_markers(true, true).unwrap();
+        let started = app.start_recording().unwrap();
+        thread::sleep(Duration::from_secs(2));
+        app.set_input_markers(false, false).unwrap();
+        assert!(
+            app.emit_input_marker("key-down".into(), "ignored".into())
+                .is_err()
+        );
+        app.set_input_markers(true, true).unwrap();
+        app.emit_input_marker("key-down".into(), r#"{"key":"a"}"#.into())
+            .unwrap();
+        app.emit_input_marker("key-up".into(), r#"{"key":"a"}"#.into())
+            .unwrap();
+        app.emit_input_marker("mouse-click".into(), r#"{"button":0,"x":12,"y":34}"#.into())
+            .unwrap();
+        thread::sleep(Duration::from_secs(1));
+        let stopped = app.stop_recording().unwrap();
+        assert_eq!(stopped.recording.phase, "complete");
+        assert!(stopped.recording.bytes_written > 0);
+        println!("XDF: {}", started.recording.output_file.unwrap());
     }
 }

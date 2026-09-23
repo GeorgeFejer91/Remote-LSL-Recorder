@@ -37,6 +37,28 @@ fn select_stream(
 }
 
 #[tauri::command]
+async fn set_input_markers(
+    app: AppHandle,
+    keyboard: bool,
+    mouse: bool,
+) -> Result<AppSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AppState>().set_input_markers(keyboard, mouse)
+    })
+    .await
+    .map_err(|error| format!("Input marker setup failed: {error}"))?
+}
+
+#[tauri::command]
+fn emit_input_marker(
+    state: State<'_, AppState>,
+    kind: String,
+    detail: String,
+) -> Result<(), String> {
+    state.emit_input_marker(kind, detail)
+}
+
+#[tauri::command]
 async fn start_recording(app: AppHandle) -> Result<AppSnapshot, String> {
     tauri::async_runtime::spawn_blocking(move || app.state::<AppState>().start_recording())
         .await
@@ -58,6 +80,11 @@ fn start_remote(state: State<'_, AppState>) -> Result<RemoteInvite, String> {
 #[tauri::command]
 fn stop_remote(state: State<'_, AppState>) -> Result<AppSnapshot, String> {
     state.stop_remote()
+}
+
+#[tauri::command]
+fn decide_remote(state: State<'_, AppState>, approved: bool) -> Result<AppSnapshot, String> {
+    state.decide_remote(approved)
 }
 
 #[tauri::command]
@@ -104,10 +131,13 @@ pub fn run() {
             refresh_streams,
             configure_session,
             select_stream,
+            set_input_markers,
+            emit_input_marker,
             start_recording,
             stop_recording,
             start_remote,
             stop_remote,
+            decide_remote,
             report_remote_status,
             remote_command,
         ])

@@ -66,12 +66,42 @@ marker stream, stop cleanly, and open the resulting XDF in an independent
 reader. For a remote claim, observe a physical phone command reach Rust and the
 authoritative revision return over BRSP/1. Record the VDO route honestly.
 
+For pairing, verify the named request appears on the PC, commands and recorder
+state remain unavailable before Allow, Deny refuses access, Allow enables one
+session, and disconnect or Stop revokes it. Reconnect requires a fresh QR code.
+
 For the combined viewer claim, inject at least two distinguishable markers and
 verify that each appears with intact text and LSL time in the chronological
 table and as a time-aligned vertical annotation on a numeric plot. Confirm that
 pausing or slowing the HTML render loop does not stop preview ingestion or the
 LabRecorder process. The companion must receive marker updates from the same
 authoritative revisioned state rather than maintain a second marker clock.
+
+For input markers, enable each toggle separately in the desktop window and
+check key down/up plus left/right mouse button coordinates in the marker table.
+Confirm that disabled sources produce no new markers, and independently open an
+XDF made while toggling during recording to confirm the `Recorder input` stream
+and its LSL timestamps. For scaling, use two numeric streams with different
+units and at least one multi-channel stream; confirm separate stacked lanes,
+independent moving ranges, unit labels where declared, and visibility controls
+that do not change recording selection.
+
+For bounded UI text, run the Pretext vendor sync check and inspect the desktop
+WebView and phone browser at narrow and normal widths. Verify action labels
+fit or wrap at the readable floor, stream names and errors remain accessible,
+and the layout recovers when widened. Browser inspection does not establish
+packaged WebView or physical-phone parity.
+
+For remote control under live marker traffic, confirm marker updates advance
+the state revision without advancing the control revision, then observe a phone
+command applied against the current control revision.
+
+For the miniature phone viewer, confirm a live signal produces a changing local
+trace and receiving state, a paused signal changes to no recent samples, an
+irregular marker stream stays in watching state between events, and a new
+marker appears with intact text and LSL time. Inspect the BRSP projection to
+confirm it sends one current numeric value and sample identifier per stream,
+not the desktop preview buffer. Confirm the layout at narrow phone width.
 
 ## Gate 4: publication
 

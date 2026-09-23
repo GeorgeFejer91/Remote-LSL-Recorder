@@ -24,7 +24,9 @@
     <section id="pairing-panel" class="panel pairing">
       <h2>Join the recorder</h2>
       <p id="pairing-copy">This invitation gives temporary access to one recorder session.</p>
-      <button id="connect" type="button">Connect</button>
+      <label for="controller-name">Your name</label>
+      <input id="controller-name" type="text" maxlength="48" autocomplete="name" required>
+      <button id="connect" type="button" data-fit-text="action">Connect</button>
       <p id="connection-status" class="status" role="status">Waiting for you.</p>
     </section>
 
@@ -36,9 +38,26 @@
           <p id="recording-detail">No recording is active.</p>
         </div>
         <div class="record-actions">
-          <button id="start-recording" type="button">Start</button>
-          <button id="stop-recording" type="button" class="danger" disabled>Stop</button>
+          <button id="start-recording" type="button" data-fit-text="action">Start</button>
+          <button id="stop-recording" type="button" class="danger" data-fit-text="action" disabled>Stop</button>
         </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <h2>Live streams</h2>
+          <button id="refresh-streams" type="button" class="quiet" data-fit-text="action">Refresh</button>
+        </div>
+        <p class="stream-note">Small preview of the first channel. XDF records all selected channels.</p>
+        <div id="stream-list" class="stream-list"></div>
+      </section>
+
+      <section class="panel markers-panel">
+        <div class="section-heading">
+          <h2>Recent markers</h2>
+          <span id="marker-count">0 recent</span>
+        </div>
+        <ol id="marker-list" class="marker-list"></ol>
       </section>
 
       <section class="panel">
@@ -49,24 +68,14 @@
         <label for="participant-id">Participant ID</label>
         <div class="inline-form">
           <input id="participant-id" maxlength="64" autocomplete="off">
-          <button id="apply-participant" type="button" class="secondary">Apply</button>
+          <button id="apply-participant" type="button" class="secondary" data-fit-text="action">Apply</button>
         </div>
       </section>
 
-      <section class="panel">
-        <div class="section-heading">
-          <h2>LSL streams</h2>
-          <button id="refresh-streams" type="button" class="quiet">Refresh</button>
-        </div>
-        <div id="stream-list" class="stream-list"></div>
-      </section>
-
-      <section class="panel markers-panel">
-        <div class="section-heading">
-          <h2>Markers</h2>
-          <span id="marker-count">0 recent</span>
-        </div>
-        <ol id="marker-list" class="marker-list"></ol>
+      <section class="panel input-marker-controls">
+        <h2>Computer input markers</h2>
+        <label><input id="keyboard-markers" type="checkbox"> Keyboard press and release markers</label>
+        <label><input id="mouse-markers" type="checkbox"> Mouse click markers with coordinates</label>
       </section>
     </div>
   </main>

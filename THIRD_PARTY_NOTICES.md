@@ -23,3 +23,12 @@ license.
 The optional browser companion uses the vendored VDO.Ninja SDK 1.5.5 under
 MPL-2.0. The corresponding license and notice are stored with the vendored
 browser asset.
+
+## Pretext and Noto Sans
+
+The desktop and phone interfaces bundle Pretext 0.0.9 for bounded label
+measurement (MIT) and Noto Sans 5.2.8 font files (SIL Open Font License 1.1).
+Their license files are included beside each vendored browser asset.
+
+- Pretext: https://github.com/chenglou/pretext
+- Noto Sans: https://github.com/fontsource/fontsource/tree/main/packages/noto-sans

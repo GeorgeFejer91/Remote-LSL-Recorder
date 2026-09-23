@@ -1,9 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Remote LSL Recorder",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "identifier": "dev.georgefejer.remotelslrecorder",
   "build": {
+    "beforeBuildCommand": "pnpm prepare:web",
     "frontendDist": "../web"
   },
   "app": {
@@ -17,8 +18,8 @@
         "title": "Remote LSL Recorder",
         "width": 1280,
         "height": 820,
-        "minWidth": 960,
-        "minHeight": 680,
+        "minWidth": 720,
+        "minHeight": 540,
         "resizable": true,
         "center": true
       }

@@ -41,10 +41,22 @@ companion.
   subscription and XDF serialization, never application policy.
 - Rust `labstream` inlet: discovery and bounded live preview only; recording
   correctness does not depend on the preview path.
+- Rust publishes an opt-in, local-window keyboard/mouse LSL marker stream;
+  LabRecorder includes it in XDF independently of HTML preview cadence.
 - `web/`: installed Tauri adapter and visualization surface.
 - `companion/`: static BRSP/1 controller; contains no user data or secrets.
+- The phone's miniature viewer receives one first-channel value and a sample
+  identifier per stream per bounded state update, and renders a local short
+  trace. Recent markers retain their source text and LSL time. XDF acquisition
+  and full preview buffers stay on the PC.
+- Both interfaces use one copied Pretext fitter and a bundled Noto Sans face for
+  bounded action labels. Stream names, marker text, paths, and errors reflow or
+  scroll as semantic HTML.
 - VDO.Ninja data-only WebRTC: opt-in BRSP transport. It needs Internet
   signaling/STUN/TURN and is not described as offline-LAN control.
+- Phone pairing carries a bounded name over BRSP; the desktop must approve it
+  locally before Rust accepts recorder commands or publishes recorder state.
+  Approval ends with the peer session. The output directory stays local to PC.
 - Product identity: `Remote LSL Recorder`, bundle identifier
   `dev.georgefejer.remotelslrecorder`.
 
@@ -56,6 +68,8 @@ companion.
   `https://georgefejer91.github.io/Remote-LSL-Recorder/` with HTTPS enforced.
 - Tauri v2, Rust 2024, and plain HTML/CSS/JavaScript are the selected stack.
 - Windows x86_64 is the first packaging and runtime target.
+- BRSP state revisions include marker updates; a separate control revision
+  guards remote mutations so live markers do not invalidate phone commands.
 
 Git and runnable checks are the authority for branch, revision, and behavior.
 Do not turn this section into a second status ledger.

@@ -23,3 +23,33 @@ export function commandForParticipant(participantId) {
     args: { participantId: String(participantId) },
   };
 }
+
+export function observeActivity(history, stream, now) {
+  const current = history.get(stream.id) ?? { lastSample: null, seenAt: 0, values: [] };
+  if (stream.lastSample != null && stream.lastSample !== current.lastSample) {
+    current.lastSample = stream.lastSample;
+    current.seenAt = now;
+    if (Number.isFinite(stream.sampleValue)) {
+      current.values.push(stream.sampleValue);
+      if (current.values.length > 24) current.values.shift();
+    }
+  }
+  history.set(stream.id, current);
+  const recent = current.seenAt > 0 && now - current.seenAt < 2_500;
+  const status = !stream.connected ? "Disconnected"
+    : stream.isMarker ? (recent ? "Event received" : "Watching events")
+      : recent ? "Receiving" : "No recent samples";
+  return { status, recent, values: current.values };
+}
+
+export function sparklinePath(values, width = 88, height = 28) {
+  if (values.length < 2) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+  return values.map((value, index) => {
+    const x = (index * width / (values.length - 1)).toFixed(1);
+    const y = (height / 2 - (range ? (value - min) / range - 0.5 : 0) * (height - 4)).toFixed(1);
+    return `${index ? "L" : "M"}${x} ${y}`;
+  }).join(" ");
+}

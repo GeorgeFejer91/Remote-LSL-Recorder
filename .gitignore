@@ -17,6 +17,7 @@ Thumbs.db
 /target/
 /src-tauri/target/
 /node_modules/
+/.pnpm-store/
 
 # Fetched recording engine and non-Windows generated Tauri assets
 /vendor/labrecorder-win/

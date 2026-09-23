@@ -15,6 +15,13 @@ pub struct PreviewSample {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ChannelView {
+    pub label: String,
+    pub unit: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StreamView {
     pub id: String,
     pub name: String,
@@ -22,6 +29,7 @@ pub struct StreamView {
     pub hostname: String,
     pub source_id: String,
     pub channel_count: usize,
+    pub channels: Vec<ChannelView>,
     pub nominal_rate: f64,
     pub format: String,
     pub is_marker: bool,
@@ -72,6 +80,8 @@ pub struct RemoteView {
     pub phase: String,
     pub route: String,
     pub controller_connected: bool,
+    pub approval: String,
+    pub controller_name: Option<String>,
 }
 
 impl Default for RemoteView {
@@ -81,6 +91,8 @@ impl Default for RemoteView {
             phase: "idle".into(),
             route: "unknown".into(),
             controller_connected: false,
+            approval: "idle".into(),
+            controller_name: None,
         }
     }
 }
@@ -89,6 +101,9 @@ impl Default for RemoteView {
 #[serde(rename_all = "camelCase")]
 pub struct AppSnapshot {
     pub revision: u64,
+    pub control_revision: u64,
+    pub keyboard_markers: bool,
+    pub mouse_markers: bool,
     pub participant_id: String,
     pub output_directory: String,
     pub streams: Vec<StreamView>,
@@ -112,6 +127,7 @@ pub struct RemoteInvite {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RemoteCommandRequest {
     pub grant_token: String,
+    pub scope: String,
     pub action: String,
     #[serde(default)]
     pub args: serde_json::Value,
@@ -140,6 +156,9 @@ pub struct RemoteSession {
 
 pub struct Authority {
     pub revision: u64,
+    pub control_revision: u64,
+    pub keyboard_markers: bool,
+    pub mouse_markers: bool,
     pub participant_id: String,
     pub output_directory: String,
     pub streams: HashMap<String, StreamRecord>,
@@ -171,6 +190,9 @@ impl Authority {
         });
         AppSnapshot {
             revision: self.revision,
+            control_revision: self.control_revision,
+            keyboard_markers: self.keyboard_markers,
+            mouse_markers: self.mouse_markers,
             participant_id: self.participant_id.clone(),
             output_directory: self.output_directory.clone(),
             streams,

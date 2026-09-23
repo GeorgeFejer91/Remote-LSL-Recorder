@@ -1,9 +1,9 @@
 use crate::types::{
-    Authority, MAX_MARKERS, MAX_PREVIEW_SAMPLES, MAX_STREAMS, MarkerEvent, PreviewSample,
-    StreamRecord, StreamView,
+    Authority, ChannelView, MAX_MARKERS, MAX_PREVIEW_SAMPLES, MAX_STREAMS, MarkerEvent,
+    PreviewSample, StreamRecord, StreamView,
 };
 use chrono::Utc;
-use labstream::{Buffer, Chunk, Inlet, Post, Query, StreamInfo};
+use labstream::{Buffer, Chunk, Format, Inlet, Post, Query, StreamInfo};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
@@ -13,12 +13,14 @@ use std::{
 
 pub struct PreviewService {
     started: Mutex<HashSet<String>>,
+    excluded_source_id: String,
 }
 
 impl PreviewService {
-    pub fn new() -> Self {
+    pub fn new(excluded_source_id: String) -> Self {
         Self {
             started: Mutex::new(HashSet::new()),
+            excluded_source_id,
         }
     }
 
@@ -26,19 +28,29 @@ impl PreviewService {
         let infos = labstream::resolve_all(&Query::all(), Duration::from_millis(900))
             .map_err(|error| format!("LSL discovery failed: {error}"))?;
         let mut unique = HashMap::<String, StreamInfo>::new();
-        for info in infos.into_iter().take(MAX_STREAMS) {
+        for info in infos
+            .into_iter()
+            .filter(|info| info.source_id() != self.excluded_source_id)
+            .take(MAX_STREAMS)
+        {
             unique.entry(stream_id(&info)).or_insert(info);
         }
 
-        for (id, info) in &unique {
-            let record = stream_record(id, info);
+        {
             let mut state = authority
                 .lock()
                 .map_err(|_| "State lock failed.".to_string())?;
-            let previously_selected = state.selected_ids.contains(id);
-            state.streams.insert(id.clone(), record);
-            if !previously_selected && state.recording.phase == "idle" {
-                state.selected_ids.insert(id.clone());
+            for (id, info) in &unique {
+                if let std::collections::hash_map::Entry::Vacant(entry) =
+                    state.streams.entry(id.clone())
+                {
+                    entry.insert(stream_record(id, info));
+                    if state.recording.phase != "recording" {
+                        state.selected_ids.insert(id.clone());
+                    }
+                    state.revision += 1;
+                    state.control_revision += 1;
+                }
             }
         }
 
@@ -93,6 +105,7 @@ fn stream_record(id: &str, info: &StreamInfo) -> StreamRecord {
             hostname: info.hostname().to_string(),
             source_id: info.source_id().to_string(),
             channel_count: info.channel_count(),
+            channels: Vec::new(),
             nominal_rate: info.rate(),
             format: format!("{:?}", info.format()),
             is_marker: marker,
@@ -108,7 +121,7 @@ fn stream_record(id: &str, info: &StreamInfo) -> StreamRecord {
 
 fn is_marker(info: &StreamInfo) -> bool {
     let kind = info.stream_type().to_ascii_lowercase();
-    !info.is_regular()
+    info.format() == Format::String
         || kind.contains("marker")
         || kind.contains("event")
         || kind.contains("trigger")
@@ -143,6 +156,16 @@ fn start_preview_thread(authority: Arc<Mutex<Authority>>, id: String, info: Stre
             {
                 stream.view.connected = true;
                 stream.view.error = None;
+                stream.view.channels = inlet
+                    .info()
+                    .channels()
+                    .into_iter()
+                    .take(16)
+                    .map(|channel| ChannelView {
+                        label: channel.label.chars().take(64).collect(),
+                        unit: channel.unit.chars().take(32).collect(),
+                    })
+                    .collect();
             }
 
             if marker {
@@ -196,20 +219,26 @@ fn run_marker_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut I
 
 fn run_signal_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut Inlet) {
     let channels = inlet.info().channel_count();
+    let stride = (inlet.info().rate() / 100.0).ceil().max(1.0) as usize;
     let mut chunk = Chunk::<f64>::new(channels, 256);
     loop {
         chunk.clear();
         match inlet.pull_chunk(&mut chunk, Duration::from_millis(50)) {
             Ok(0) => {}
             Ok(_) => {
-                if let Some((timestamp, values)) = chunk.iter().last()
-                    && let Ok(mut state) = authority.lock()
+                if let Ok(mut state) = authority.lock()
                     && let Some(stream) = state.streams.get_mut(id)
                 {
-                    stream.view.preview.push(PreviewSample {
-                        timestamp,
-                        values: values.iter().take(16).copied().collect(),
-                    });
+                    stream.view.preview.extend(
+                        chunk
+                            .iter()
+                            .enumerate()
+                            .filter(|(index, _)| index % stride == 0)
+                            .map(|(_, (timestamp, values))| PreviewSample {
+                                timestamp,
+                                values: values.iter().take(16).copied().collect(),
+                            }),
+                    );
                     if stream.view.preview.len() > MAX_PREVIEW_SAMPLES {
                         let remove = stream.view.preview.len() - MAX_PREVIEW_SAMPLES;
                         stream.view.preview.drain(0..remove);
@@ -241,4 +270,25 @@ fn thread_safe_name(value: &str) -> String {
         .filter(|character| character.is_ascii_alphanumeric())
         .take(24)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn irregular_numeric_streams_are_signals_and_string_events_are_markers() {
+        let numeric = StreamInfo::builder("Intervals", "Data", Format::Float32)
+            .channel_count(1)
+            .irregular()
+            .build()
+            .unwrap();
+        let marker = StreamInfo::builder("Events", "Markers", Format::String)
+            .channel_count(1)
+            .irregular()
+            .build()
+            .unwrap();
+        assert!(!is_marker(&numeric));
+        assert!(is_marker(&marker));
+    }
 }

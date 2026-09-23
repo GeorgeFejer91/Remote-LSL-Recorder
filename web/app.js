@@ -3,6 +3,9 @@ import {
   stopRemoteTarget,
   updateRemoteSnapshot,
 } from "./remote-target.js";
+import { timeToX } from "./chart-time.js";
+import { channelRanges } from "./chart-scale.js";
+import { mountTextFitting } from "./text-fit.js";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 const byId = (id) => document.getElementById(id);
@@ -15,8 +18,11 @@ const elements = {
   streamCount: byId("stream-count"),
   streamList: byId("stream-list"),
   charts: byId("charts"),
+  viewerStreams: byId("viewer-streams"),
   markerCount: byId("marker-count"),
   markerList: byId("marker-list"),
+  keyboardMarkers: byId("keyboard-markers"),
+  mouseMarkers: byId("mouse-markers"),
   recordIndicator: byId("record-indicator"),
   recordPhase: byId("record-phase"),
   recordDetail: byId("record-detail"),
@@ -32,15 +38,24 @@ const elements = {
   remoteLink: byId("remote-link"),
   remotePhase: byId("remote-phase"),
   remoteRoute: byId("remote-route"),
+  remoteRequest: byId("remote-request"),
+  remoteRequestName: byId("remote-request-name"),
+  remoteApprove: byId("remote-approve"),
+  remoteDeny: byId("remote-deny"),
 };
 
 let latest;
 let sessionInitialized = false;
 let streamSignature = "";
 let chartSignature = "";
+let viewerSignature = "";
+const hiddenStreamIds = new Set();
 let markerSequence = -1;
 let busy = false;
 let remoteRunning = false;
+let remoteClosing = false;
+let inputMarkersPending = false;
+let inputMarkerQueue = Promise.resolve();
 
 async function run(label, operation) {
   if (busy) return;
@@ -68,11 +83,24 @@ function render(snapshot) {
     sessionInitialized = true;
   }
   renderStreams(snapshot);
+  renderViewerStreams(snapshot);
   renderCharts(snapshot);
   renderMarkers(snapshot.markers);
+  if (!inputMarkersPending) {
+    elements.keyboardMarkers.checked = snapshot.keyboardMarkers;
+    elements.mouseMarkers.checked = snapshot.mouseMarkers;
+  }
   renderRecording(snapshot.recording);
-  elements.remotePhase.textContent = titleCase(snapshot.remote.phase);
+  elements.remotePhase.textContent = snapshot.remote.approval === "pending"
+    ? "Approval required"
+    : snapshot.remote.approval === "approved" ? "Connected"
+      : snapshot.remote.approval === "denied" ? "Denied" : titleCase(snapshot.remote.phase);
   elements.remoteRoute.textContent = titleCase(snapshot.remote.route);
+  elements.remoteRequest.hidden = snapshot.remote.approval !== "pending";
+  elements.remoteRequestName.textContent = snapshot.remote.controllerName ?? "A phone";
+  if (snapshot.remote.approval === "pending" && !elements.remoteDialog.open) {
+    elements.remoteDialog.showModal();
+  }
 }
 
 function renderStreams(snapshot) {
@@ -119,14 +147,35 @@ function renderStreams(snapshot) {
   }
 }
 
+function renderViewerStreams(snapshot) {
+  const numeric = snapshot.streams.filter((stream) => !stream.isMarker);
+  const signature = numeric.map((stream) => `${stream.id}:${stream.name}`).join("|");
+  if (signature === viewerSignature) return;
+  viewerSignature = signature;
+  elements.viewerStreams.replaceChildren();
+  for (const stream of numeric) {
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !hiddenStreamIds.has(stream.id);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) hiddenStreamIds.delete(stream.id);
+      else hiddenStreamIds.add(stream.id);
+      renderCharts(latest);
+    });
+    label.append(checkbox, textElement("span", stream.name));
+    elements.viewerStreams.append(label);
+  }
+}
+
 function renderCharts(snapshot) {
-  const visible = snapshot.streams.filter((stream) => !stream.isMarker && stream.selected);
+  const visible = snapshot.streams.filter((stream) => !stream.isMarker && !hiddenStreamIds.has(stream.id));
   const nextSignature = visible.map((stream) => stream.id).join("|");
   if (nextSignature !== chartSignature) {
     chartSignature = nextSignature;
     elements.charts.replaceChildren();
     if (visible.length === 0) {
-      elements.charts.append(textElement("p", "Select a numeric LSL stream to view it.", "empty-state"));
+      elements.charts.append(textElement("p", "No numeric streams are visible.", "empty-state"));
     } else {
       for (const stream of visible) elements.charts.append(createChart(stream));
     }
@@ -144,10 +193,11 @@ function createChart(stream) {
   title.className = "chart-title";
   title.append(
     textElement("strong", stream.name),
-    textElement("span", `${stream.channelCount} channels · ${formatRate(stream.nominalRate)}`),
+    textElement("span", `${stream.channelCount} channels · ${formatRate(stream.nominalRate)} · per-channel autoscale`),
   );
   const canvas = document.createElement("canvas");
   canvas.dataset.streamId = stream.id;
+  canvas.style.height = `${Math.min(16, stream.channelCount) * 90}px`;
   canvas.setAttribute("aria-label", `Live signal plot for ${stream.name}`);
   panel.append(title, canvas);
   return panel;
@@ -169,42 +219,60 @@ function drawChart(canvas, stream, markers) {
   context.clearRect(0, 0, w, h);
   context.fillStyle = "#fff";
   context.fillRect(0, 0, w, h);
-  context.strokeStyle = "#e7e4dc";
-  context.lineWidth = 1;
-  for (let line = 1; line < 4; line += 1) {
-    const y = (h * line) / 4;
-    context.beginPath(); context.moveTo(0, y); context.lineTo(w, y); context.stroke();
-  }
+  const channels = Math.min(16, stream.channelCount);
+  const laneHeight = h / Math.max(1, channels);
+  const left = Math.min(115, w * 0.3);
+  const plotWidth = Math.max(1, w - left - 8);
   if (stream.preview.length < 2) {
     context.fillStyle = "#777c73";
-    context.font = "12px Aptos";
+    context.font = "12px Noto Sans";
     context.fillText(stream.connected ? "Waiting for samples…" : "Connecting…", 12, 22);
     return;
   }
-  const channels = Math.min(16, stream.preview[0].values.length);
-  const values = stream.preview.flatMap((sample) => sample.values.slice(0, channels)).filter(Number.isFinite);
-  let low = Math.min(...values);
-  let high = Math.max(...values);
-  if (low === high) { low -= 1; high += 1; }
-  const pad = (high - low) * 0.08;
-  low -= pad; high += pad;
+  const ranges = channelRanges(stream.preview, channels);
+  canvas.setAttribute("aria-label", `Live signal plot for ${stream.name}. ${ranges.map((range, index) => {
+    const metadata = stream.channels?.[index];
+    const label = metadata?.label || `Channel ${index + 1}`;
+    return range ? `${label}: ${formatValue(range.min)} to ${formatValue(range.max)} ${metadata?.unit || "units unspecified"}` : `${label}: no finite samples`;
+  }).join("; ")}`);
   const colors = ["#276749", "#a85d13", "#6b4d8a", "#2f6f89", "#8e493b", "#52633b"];
+  const first = stream.preview[0].timestamp;
+  const last = stream.preview.at(-1).timestamp;
   for (let channel = 0; channel < channels; channel += 1) {
+    const top = channel * laneHeight;
+    const range = ranges[channel];
+    const metadata = stream.channels?.[channel];
+    context.fillStyle = "#454a43";
+    context.font = "11px Noto Sans";
+    context.fillText(metadata?.label || `Ch ${channel + 1}`, 8, top + 22, left - 14);
+    context.fillStyle = "#62675f";
+    context.font = "10px Noto Sans";
+    context.fillText(metadata?.unit || "unit unknown", 8, top + 38, left - 14);
+    if (range) context.fillText(`${formatValue(range.min)} to ${formatValue(range.max)}`, 8, top + 54, left - 14);
+    context.strokeStyle = "#e7e4dc";
+    context.lineWidth = 1;
+    context.beginPath(); context.moveTo(left, top + laneHeight / 2); context.lineTo(w, top + laneHeight / 2); context.stroke();
+    if (channel > 0) {
+      context.beginPath(); context.moveTo(0, top); context.lineTo(w, top); context.stroke();
+    }
+    if (!range) continue;
     context.strokeStyle = colors[channel % colors.length];
     context.lineWidth = 1.25;
     context.beginPath();
-    stream.preview.forEach((sample, index) => {
-      const x = (index / (stream.preview.length - 1)) * w;
-      const y = h - ((sample.values[channel] - low) / (high - low)) * h;
-      if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
-    });
+    let started = false;
+    for (const sample of stream.preview) {
+      const value = sample.values[channel];
+      if (!Number.isFinite(value)) { started = false; continue; }
+      const x = left + timeToX(sample.timestamp, first, last, plotWidth);
+      const y = top + laneHeight - 8 - ((value - range.low) / (range.high - range.low)) * (laneHeight - 16);
+      if (started) context.lineTo(x, y); else context.moveTo(x, y);
+      started = true;
+    }
     context.stroke();
   }
-  const first = stream.preview[0].timestamp;
-  const last = stream.preview.at(-1).timestamp;
   const inWindow = markers.filter((marker) => marker.lslTimestamp >= first && marker.lslTimestamp <= last).reverse();
   for (const marker of inWindow.slice(-16)) {
-    const x = ((marker.lslTimestamp - first) / Math.max(0.000001, last - first)) * w;
+    const x = left + timeToX(marker.lslTimestamp, first, last, plotWidth);
     context.strokeStyle = markerColor(marker.streamName);
     context.lineWidth = 1.5;
     context.beginPath(); context.moveTo(x, 0); context.lineTo(x, h); context.stroke();
@@ -286,6 +354,57 @@ elements.recordStop.addEventListener("click", () => {
   void run("Finishing the XDF footer…", () => invoke("stop_recording")).catch(() => {});
 });
 
+async function setInputMarkers() {
+  if (inputMarkersPending) return;
+  inputMarkersPending = true;
+  elements.keyboardMarkers.disabled = true;
+  elements.mouseMarkers.disabled = true;
+  try {
+    await inputMarkerQueue;
+    render(await invoke("set_input_markers", {
+      keyboard: elements.keyboardMarkers.checked,
+      mouse: elements.mouseMarkers.checked,
+    }));
+    elements.status.textContent = "Ready";
+  } catch (error) {
+    elements.status.textContent = readableError(error);
+    elements.keyboardMarkers.checked = latest.keyboardMarkers;
+    elements.mouseMarkers.checked = latest.mouseMarkers;
+  } finally {
+    inputMarkersPending = false;
+    elements.keyboardMarkers.disabled = false;
+    elements.mouseMarkers.disabled = false;
+  }
+}
+
+elements.keyboardMarkers.addEventListener("change", () => void setInputMarkers());
+elements.mouseMarkers.addEventListener("change", () => void setInputMarkers());
+
+function queueInputMarker(kind, detail) {
+  inputMarkerQueue = inputMarkerQueue
+    .then(() => invoke("emit_input_marker", { kind, detail: JSON.stringify(detail) }))
+    .catch((error) => { elements.status.textContent = readableError(error); });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (latest?.keyboardMarkers && elements.keyboardMarkers.checked) queueInputMarker("key-down", {
+    key: event.key, code: event.code, repeat: event.repeat,
+    alt: event.altKey, ctrl: event.ctrlKey, shift: event.shiftKey, meta: event.metaKey,
+  });
+}, true);
+document.addEventListener("keyup", (event) => {
+  if (latest?.keyboardMarkers && elements.keyboardMarkers.checked) queueInputMarker("key-up", {
+    key: event.key, code: event.code,
+    alt: event.altKey, ctrl: event.ctrlKey, shift: event.shiftKey, meta: event.metaKey,
+  });
+}, true);
+document.addEventListener("mousedown", (event) => {
+  if (latest?.mouseMarkers && elements.mouseMarkers.checked) queueInputMarker("mouse-click", {
+    button: event.button, x: event.clientX, y: event.clientY,
+    screenX: event.screenX, screenY: event.screenY,
+  });
+}, true);
+
 elements.remoteOpen.addEventListener("click", () => elements.remoteDialog.showModal());
 elements.remoteStart.addEventListener("click", () => {
   void run("Starting phone access…", async () => {
@@ -296,8 +415,11 @@ elements.remoteStart.addEventListener("click", () => {
     elements.remoteActive.hidden = false;
     await startRemoteTarget(invite, ({ phase, route, connected }) => {
       remoteRunning = true;
-      elements.remotePhase.textContent = connected ? "Connected" : titleCase(phase);
+      elements.remotePhase.textContent = connected ? "Waiting for approval" : titleCase(phase);
       elements.remoteRoute.textContent = titleCase(route);
+      if (["disconnected", "error"].includes(phase) && !remoteClosing) {
+        void endRemoteSession().catch((error) => { elements.status.textContent = readableError(error); });
+      }
     });
     remoteRunning = true;
     return invoke("get_snapshot");
@@ -308,17 +430,32 @@ elements.remoteStart.addEventListener("click", () => {
   });
 });
 
+elements.remoteApprove.addEventListener("click", () => {
+  void run("Approving phone…", () => invoke("decide_remote", { approved: true })).catch(() => {});
+});
+elements.remoteDeny.addEventListener("click", () => {
+  void run("Denying phone…", () => invoke("decide_remote", { approved: false })).catch(() => {});
+});
+
 elements.remoteStop.addEventListener("click", () => {
-  void run("Stopping phone access…", async () => {
+  void run("Stopping phone access…", endRemoteSession).catch(() => {});
+});
+
+async function endRemoteSession() {
+  if (remoteClosing) return;
+  remoteClosing = true;
+  try {
     await stopRemoteTarget();
     remoteRunning = false;
     elements.remoteQr.replaceChildren();
     elements.remoteLink.href = "#";
     elements.remoteIdle.hidden = false;
     elements.remoteActive.hidden = true;
-    return invoke("stop_remote");
-  }).catch(() => {});
-});
+    return await invoke("stop_remote");
+  } finally {
+    remoteClosing = false;
+  }
+}
 
 window.addEventListener("pagehide", () => {
   if (remoteRunning) void stopRemoteTarget();
@@ -349,6 +486,10 @@ function markerColor(value) {
 }
 
 function formatRate(rate) { return rate > 0 ? `${rate.toLocaleString()} Hz` : "irregular"; }
+function formatValue(value) {
+  if (value !== 0 && (Math.abs(value) >= 1e5 || Math.abs(value) < 1e-3)) return value.toExponential(2);
+  return Number(value.toPrecision(3)).toString();
+}
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -358,4 +499,5 @@ function titleCase(value) { return String(value || "unknown").replaceAll("-", " 
 function readableError(error) { return String(error?.message || error || "Unknown error"); }
 
 await poll();
+void mountTextFitting();
 void run("Discovering LSL streams…", () => invoke("refresh_streams")).catch(() => {});
