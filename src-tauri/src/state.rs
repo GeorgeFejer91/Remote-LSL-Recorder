@@ -977,4 +977,61 @@ mod tests {
         assert!(stopped.recording.bytes_written > 0);
         println!("XDF: {}", started.recording.output_file.unwrap());
     }
+
+    #[test]
+    #[ignore = "requires live Polar/Vernier Mini mock outlets and the pinned Windows LabRecorder engine"]
+    fn labrecorder_captures_polar_and_vernier_mocks_together() {
+        let polar_pid = std::env::var("POLAR_MOCK_PID").expect("set POLAR_MOCK_PID");
+        let vernier_pid = std::env::var("VERNIER_MOCK_PID").expect("set VERNIER_MOCK_PID");
+        let polar_base = format!("Polar-H10-Mini-Mock-{polar_pid}");
+        let vernier_name = format!("Vernier-GDX-Mini-Mock-{vernier_pid}");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.for-ai-local");
+        let output = root.join(format!("joint-mini-smoke-{}", random_token(6)));
+        let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../vendor/labrecorder-win");
+        let app = AppState::new(output.clone(), engine);
+        app.configure_session("MINI_MOCK_TEST".into(), output.display().to_string())
+            .unwrap();
+
+        let discovered = app.refresh_streams().unwrap();
+        let mut selected = 0;
+        for stream in discovered.streams {
+            let wanted = stream.name.starts_with(&polar_base) || stream.name == vernier_name;
+            app.select_stream(stream.id, wanted).unwrap();
+            selected += usize::from(wanted);
+        }
+        assert!(
+            selected >= 3,
+            "expected Polar ECG/ACC and Vernier mock outlets"
+        );
+        let ready = (0..30).any(|_| {
+            let snapshot = app.snapshot().unwrap();
+            let live = snapshot.streams.iter().filter(|stream| {
+                (stream.name == format!("{polar_base}_rawECG")
+                    || stream.name == format!("{polar_base}_rawACC")
+                    || stream.name == vernier_name)
+                    && stream.connected
+                    && !stream.preview.is_empty()
+            });
+            if live.count() == 3 {
+                true
+            } else {
+                thread::sleep(Duration::from_millis(100));
+                false
+            }
+        });
+        assert!(ready, "all three live previews must receive samples");
+
+        app.set_input_markers(true, false).unwrap();
+        let started = app.start_recording().unwrap();
+        thread::sleep(Duration::from_secs(6));
+        app.emit_input_marker("key-down".into(), "joint-mini-test-a".into())
+            .unwrap();
+        app.emit_input_marker("key-up".into(), "joint-mini-test-b".into())
+            .unwrap();
+        thread::sleep(Duration::from_secs(1));
+        let stopped = app.stop_recording().unwrap();
+        assert_eq!(stopped.recording.phase, "complete");
+        assert!(stopped.recording.bytes_written > 0);
+        println!("XDF: {}", started.recording.output_file.unwrap());
+    }
 }

@@ -66,6 +66,14 @@ marker stream, stop cleanly, and open the resulting XDF in an independent
 reader. For a remote claim, observe a physical phone command reach Rust and the
 authoritative revision return over BRSP/1. Record the VDO route honestly.
 
+For a joint Polar/Vernier Mini mock run, launch both installed minis with
+`--mock`, set `POLAR_MOCK_PID` and `VERNIER_MOCK_PID`, and run the ignored
+`labrecorder_captures_polar_and_vernier_mocks_together` Rust test. Inspect its
+XDF independently: Polar ECG, Polar ACC, and Vernier force samples must share
+an overlapping LSL time interval, and their newest timestamps must stay near
+the local LSL clock. Captured sample counts alone do not establish synchronized
+recording. Keep generated XDF files outside Git.
+
 For pairing, verify the named request appears on the PC, commands and recorder
 state remain unavailable before Allow, Deny refuses access, Allow enables one
 session, and disconnect or Stop revokes it. Reconnect requires a fresh QR code.
