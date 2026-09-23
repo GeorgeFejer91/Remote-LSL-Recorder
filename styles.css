@@ -121,7 +121,7 @@ main {
   padding: 0.85rem 0.75rem 6rem;
 }
 
-#remote-workspace { display: grid; gap: 0.75rem; }
+#remote-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
 #remote-workspace[hidden] { display: none; }
 
 .panel {
