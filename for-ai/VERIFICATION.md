@@ -90,9 +90,15 @@ check key down/up plus left/right mouse button coordinates in the marker table.
 Confirm that disabled sources produce no new markers, and independently open an
 XDF made while toggling during recording to confirm the `Recorder input` stream
 and its LSL timestamps. For scaling, use two numeric streams with different
-units and at least one multi-channel stream; confirm separate stacked lanes,
-independent moving ranges, unit labels where declared, and visibility controls
-that do not change recording selection.
+units and at least one stream with more than 16 channels. Confirm that every
+channel from recording-selected streams appears in one scrollable preview,
+with independent moving ranges and unit labels where declared. Channel display
+checkboxes must not change recording selection. Drag the preview's lower border
+and the setup/viewer divider in both directions, then use their keyboard arrow
+controls; confirm the plots redraw without clipping labels or markers. Toggle
+"Fit all channels to window" with more channels than the preview can show at
+normal row height: every channel must fit within the allocated preview with no
+inner scrollbar, and turning it off must restore the scrollable row height.
 
 For bounded UI text, run the Pretext vendor sync check and inspect the desktop
 WebView and phone browser at narrow and normal widths. Verify headings and

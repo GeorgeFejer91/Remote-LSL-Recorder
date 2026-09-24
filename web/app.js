@@ -4,7 +4,7 @@ import {
   updateRemoteSnapshot,
 } from "./remote-target.js";
 import { timeToX } from "./chart-time.js";
-import { channelRanges } from "./chart-scale.js";
+import { channelRanges, displayChannels } from "./chart-scale.js";
 import { mountTextFitting } from "./text-fit.js";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
@@ -17,8 +17,13 @@ const elements = {
   output: byId("output-directory"),
   streamCount: byId("stream-count"),
   streamList: byId("stream-list"),
+  setup: document.querySelector(".setup-panel"),
+  workspaceResize: byId("workspace-resize"),
   charts: byId("charts"),
-  viewerStreams: byId("viewer-streams"),
+  previewResize: byId("preview-resize"),
+  channelMapSummary: byId("channel-map-summary"),
+  viewerChannels: byId("viewer-channels"),
+  fitPreview: byId("fit-preview"),
   markerCount: byId("marker-count"),
   markerList: byId("marker-list"),
   keyboardMarkers: byId("keyboard-markers"),
@@ -48,8 +53,8 @@ let latest;
 let sessionInitialized = false;
 let streamSignature = "";
 let chartSignature = "";
-let viewerSignature = "";
-const hiddenStreamIds = new Set();
+let channelMapSignature = "";
+const hiddenChannels = new Set();
 let markerSequence = -1;
 let busy = false;
 let remoteRunning = false;
@@ -83,7 +88,7 @@ function render(snapshot) {
     sessionInitialized = true;
   }
   renderStreams(snapshot);
-  renderViewerStreams(snapshot);
+  renderChannelMap(snapshot);
   renderCharts(snapshot);
   renderMarkers(snapshot.markers);
   if (!inputMarkersPending) {
@@ -147,63 +152,84 @@ function renderStreams(snapshot) {
   }
 }
 
-function renderViewerStreams(snapshot) {
-  const numeric = snapshot.streams.filter((stream) => !stream.isMarker);
-  const signature = numeric.map((stream) => `${stream.id}:${stream.name}`).join("|");
-  if (signature === viewerSignature) return;
-  viewerSignature = signature;
-  elements.viewerStreams.replaceChildren();
-  for (const stream of numeric) {
-    const label = document.createElement("label");
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = !hiddenStreamIds.has(stream.id);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) hiddenStreamIds.delete(stream.id);
-      else hiddenStreamIds.add(stream.id);
-      renderCharts(latest);
-    });
-    label.append(checkbox, textElement("span", stream.name));
-    elements.viewerStreams.append(label);
+function renderChannelMap(snapshot) {
+  const streams = snapshot.streams.filter((stream) => stream.selected && !stream.isMarker);
+  const signature = JSON.stringify(streams.map((stream) => [stream.id, stream.name, stream.channelCount, stream.channels]));
+  if (signature !== channelMapSignature) {
+    channelMapSignature = signature;
+    elements.viewerChannels.replaceChildren();
+    for (const stream of streams) {
+      for (let channel = 0; channel < stream.channelCount; channel += 1) {
+        const key = `${stream.id}\0${channel}`;
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !hiddenChannels.has(key);
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) hiddenChannels.delete(key);
+          else hiddenChannels.add(key);
+          renderChannelMap(latest);
+          renderCharts(latest);
+        });
+        const name = stream.channels?.[channel]?.label || `Ch ${channel + 1}`;
+        label.append(checkbox, textElement("span", `${stream.name} · ${name}`));
+        elements.viewerChannels.append(label);
+      }
+    }
   }
+  const total = streams.reduce((sum, stream) => sum + stream.channelCount, 0);
+  elements.channelMapSummary.textContent = `Display channels · ${displayChannels(streams, hiddenChannels).length} of ${total} shown`;
 }
 
 function renderCharts(snapshot) {
-  const visible = snapshot.streams.filter((stream) => !stream.isMarker && !hiddenStreamIds.has(stream.id));
-  const nextSignature = visible.map((stream) => stream.id).join("|");
+  const visible = displayChannels(snapshot.streams, hiddenChannels);
+  const nextSignature = JSON.stringify(visible.map(({ stream, channel, key }) => [
+    key, stream.name, stream.channels?.[channel],
+  ]));
   if (nextSignature !== chartSignature) {
     chartSignature = nextSignature;
     elements.charts.replaceChildren();
     if (visible.length === 0) {
-      elements.charts.append(textElement("p", "No numeric streams are visible.", "empty-state"));
+      elements.charts.append(textElement("p", "Select a numeric LSL stream or show a channel to preview it.", "empty-state"));
     } else {
-      for (const stream of visible) elements.charts.append(createChart(stream));
+      for (const entry of visible) elements.charts.append(createChart(entry));
     }
   }
-  for (const stream of visible) {
-    const canvas = document.querySelector(`canvas[data-stream-id="${CSS.escape(stream.id)}"]`);
-    if (canvas) drawChart(canvas, stream, snapshot.markers);
+  const fit = elements.fitPreview.checked;
+  elements.charts.classList.toggle("fit", fit);
+  if (fit) elements.charts.scrollTop = 0;
+  const rowHeight = fit && visible.length
+    ? Math.floor(elements.charts.clientHeight * 100 / visible.length) / 100 : 100;
+  const seen = new Set();
+  const ranges = new Map();
+  let first = Infinity;
+  let last = -Infinity;
+  for (const { stream } of visible) {
+    if (seen.has(stream.id)) continue;
+    seen.add(stream.id);
+    ranges.set(stream.id, channelRanges(stream.preview, stream.channelCount));
+    if (stream.preview.length >= 2) {
+      first = Math.min(first, stream.preview[0].timestamp);
+      last = Math.max(last, stream.preview.at(-1).timestamp);
+    }
+  }
+  const canvases = elements.charts.querySelectorAll("canvas");
+  for (let index = 0; index < visible.length; index += 1) {
+    const { stream, channel } = visible[index];
+    canvases[index].style.height = `${rowHeight}px`;
+    drawChart(canvases[index], stream, channel, ranges.get(stream.id)[channel], snapshot.markers, first, last);
   }
 }
 
-function createChart(stream) {
-  const panel = document.createElement("article");
-  panel.className = "chart-panel";
-  const title = document.createElement("div");
-  title.className = "chart-title";
-  title.append(
-    textElement("strong", stream.name),
-    textElement("span", `${stream.channelCount} channels · ${formatRate(stream.nominalRate)} · per-channel autoscale`),
-  );
+function createChart({ stream, channel }) {
   const canvas = document.createElement("canvas");
-  canvas.dataset.streamId = stream.id;
-  canvas.style.height = `${Math.min(16, stream.channelCount) * 90}px`;
-  canvas.setAttribute("aria-label", `Live signal plot for ${stream.name}`);
-  panel.append(title, canvas);
-  return panel;
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", `Live signal plot for ${stream.name}, channel ${channel + 1}`);
+  canvas.title = `${stream.name}, ${stream.channels?.[channel]?.label || `channel ${channel + 1}`}`;
+  return canvas;
 }
 
-function drawChart(canvas, stream, markers) {
+function drawChart(canvas, stream, channel, range, markers, first, last) {
   const rect = canvas.getBoundingClientRect();
   const scale = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(rect.width * scale));
@@ -219,52 +245,55 @@ function drawChart(canvas, stream, markers) {
   context.clearRect(0, 0, w, h);
   context.fillStyle = "#fff";
   context.fillRect(0, 0, w, h);
-  const channels = Math.min(16, stream.channelCount);
-  const laneHeight = h / Math.max(1, channels);
-  const left = Math.min(115, w * 0.3);
+  const left = Math.min(170, w * 0.36);
   const plotWidth = Math.max(1, w - left - 8);
+  const metadata = stream.channels?.[channel];
+  const label = metadata?.label || `Channel ${channel + 1}`;
+  const description = `Live signal plot for ${stream.name}, ${label}. ${range
+    ? `${formatValue(range.min)} to ${formatValue(range.max)} ${metadata?.unit || "units unspecified"}`
+    : "No finite samples"}`;
+  canvas.setAttribute("aria-label", description);
+  canvas.title = description;
+  context.fillStyle = "#454a43";
+  if (h < 60) {
+    context.font = "10px Noto Sans";
+    if (h >= 11) context.fillText(w < 400 ? label : `${stream.name} · ${label}`, 8, h / 2 + 3, left - 14);
+  } else if (w < 400) {
+    context.font = "11px Noto Sans";
+    context.fillText(label, 8, 24, left - 14);
+    context.fillStyle = "#62675f";
+    context.font = "10px Noto Sans";
+    context.fillText(range ? `${formatValue(range.min)} to ${formatValue(range.max)} ${metadata?.unit || ""}`
+      : (metadata?.unit || "Unit unspecified"), 8, 43, left - 14);
+  } else {
+    context.font = "11px Noto Sans";
+    context.fillText(stream.name, 8, 19, left - 14);
+    context.fillText(label, 8, 36, left - 14);
+    context.fillStyle = "#62675f";
+    context.font = "10px Noto Sans";
+    context.fillText(range ? `${formatValue(range.min)} to ${formatValue(range.max)} ${metadata?.unit || ""}`
+      : (metadata?.unit || "Unit unspecified"), 8, 53, left - 14);
+  }
+  context.strokeStyle = "#e7e4dc";
+  context.lineWidth = 1;
+  context.beginPath(); context.moveTo(left, h / 2); context.lineTo(w, h / 2); context.stroke();
   if (stream.preview.length < 2) {
     context.fillStyle = "#777c73";
     context.font = "12px Noto Sans";
-    context.fillText(stream.connected ? "Waiting for samples…" : "Connecting…", 12, 22);
+    context.fillText(stream.connected ? "Waiting for samples…" : "Connecting…", left + 8, 22);
     return;
   }
-  const ranges = channelRanges(stream.preview, channels);
-  canvas.setAttribute("aria-label", `Live signal plot for ${stream.name}. ${ranges.map((range, index) => {
-    const metadata = stream.channels?.[index];
-    const label = metadata?.label || `Channel ${index + 1}`;
-    return range ? `${label}: ${formatValue(range.min)} to ${formatValue(range.max)} ${metadata?.unit || "units unspecified"}` : `${label}: no finite samples`;
-  }).join("; ")}`);
-  const colors = ["#276749", "#a85d13", "#6b4d8a", "#2f6f89", "#8e493b", "#52633b"];
-  const first = stream.preview[0].timestamp;
-  const last = stream.preview.at(-1).timestamp;
-  for (let channel = 0; channel < channels; channel += 1) {
-    const top = channel * laneHeight;
-    const range = ranges[channel];
-    const metadata = stream.channels?.[channel];
-    context.fillStyle = "#454a43";
-    context.font = "11px Noto Sans";
-    context.fillText(metadata?.label || `Ch ${channel + 1}`, 8, top + 22, left - 14);
-    context.fillStyle = "#62675f";
-    context.font = "10px Noto Sans";
-    context.fillText(metadata?.unit || "unit unknown", 8, top + 38, left - 14);
-    if (range) context.fillText(`${formatValue(range.min)} to ${formatValue(range.max)}`, 8, top + 54, left - 14);
-    context.strokeStyle = "#e7e4dc";
-    context.lineWidth = 1;
-    context.beginPath(); context.moveTo(left, top + laneHeight / 2); context.lineTo(w, top + laneHeight / 2); context.stroke();
-    if (channel > 0) {
-      context.beginPath(); context.moveTo(0, top); context.lineTo(w, top); context.stroke();
-    }
-    if (!range) continue;
-    context.strokeStyle = colors[channel % colors.length];
+  if (range) {
+    context.strokeStyle = ["#276749", "#a85d13", "#6b4d8a", "#2f6f89", "#8e493b", "#52633b"][channel % 6];
     context.lineWidth = 1.25;
     context.beginPath();
     let started = false;
+    const pad = Math.min(8, h * 0.15);
     for (const sample of stream.preview) {
       const value = sample.values[channel];
       if (!Number.isFinite(value)) { started = false; continue; }
       const x = left + timeToX(sample.timestamp, first, last, plotWidth);
-      const y = top + laneHeight - 8 - ((value - range.low) / (range.high - range.low)) * (laneHeight - 16);
+      const y = h - pad - ((value - range.low) / (range.high - range.low)) * Math.max(1, h - 2 * pad);
       if (started) context.lineTo(x, y); else context.moveTo(x, y);
       started = true;
     }
@@ -276,15 +305,85 @@ function drawChart(canvas, stream, markers) {
     context.strokeStyle = markerColor(marker.streamName);
     context.lineWidth = 1.5;
     context.beginPath(); context.moveTo(x, 0); context.lineTo(x, h); context.stroke();
-    context.save();
-    context.translate(Math.min(w - 4, x + 3), 7);
-    context.rotate(Math.PI / 2);
-    context.fillStyle = markerColor(marker.streamName);
-    context.font = "10px Cascadia Mono";
-    context.fillText(marker.value.slice(0, 28), 0, 0);
-    context.restore();
+    if (h >= 60) {
+      context.save();
+      context.translate(Math.min(w - 4, x + 3), 7);
+      context.rotate(Math.PI / 2);
+      context.fillStyle = markerColor(marker.streamName);
+      context.font = "10px Cascadia Mono";
+      context.fillText(marker.value.slice(0, 28), 0, 0);
+      context.restore();
+    }
   }
 }
+
+function bindResize(handle, measure, apply) {
+  let drag;
+  const showValue = (value, bounds) => {
+    handle.setAttribute("aria-valuemin", String(bounds.min));
+    handle.setAttribute("aria-valuemax", String(bounds.max));
+    handle.setAttribute("aria-valuenow", String(Math.round(value)));
+  };
+  const setSize = (size, bounds) => {
+    const value = Math.round(Math.max(bounds.min, Math.min(bounds.max, size)));
+    apply(value);
+    showValue(value, bounds);
+  };
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const bounds = measure();
+    drag = { ...bounds, pointer: event.pointerId, start: bounds.axis === "x" ? event.clientX : event.clientY };
+    handle.setPointerCapture(event.pointerId);
+  });
+  handle.addEventListener("pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.pointer) return;
+    const point = drag.axis === "x" ? event.clientX : event.clientY;
+    setSize(drag.size + point - drag.start, drag);
+  });
+  const stop = () => { drag = null; };
+  handle.addEventListener("pointerup", stop);
+  handle.addEventListener("pointercancel", stop);
+  handle.addEventListener("lostpointercapture", stop);
+  handle.addEventListener("keydown", (event) => {
+    const bounds = measure();
+    const direction = bounds.axis === "x"
+      ? { ArrowLeft: -1, ArrowRight: 1 }
+      : { ArrowUp: -1, ArrowDown: 1 };
+    if (!direction[event.key]) return;
+    event.preventDefault();
+    setSize(bounds.size + direction[event.key] * (event.shiftKey ? 40 : 10), bounds);
+  });
+  const refresh = () => {
+    const bounds = measure();
+    if (bounds.size < bounds.min || bounds.size > bounds.max) setSize(bounds.size, bounds);
+    else showValue(bounds.size, bounds);
+  };
+  window.addEventListener("resize", refresh);
+  window.requestAnimationFrame(refresh);
+}
+
+bindResize(elements.workspaceResize, () => {
+  const narrow = window.matchMedia("(max-width: 800px)").matches;
+  const axis = narrow ? "y" : "x";
+  const size = narrow ? elements.setup.getBoundingClientRect().height : elements.setup.getBoundingClientRect().width;
+  const available = narrow ? elements.workspaceResize.parentElement.clientHeight : elements.workspaceResize.parentElement.clientWidth;
+  elements.workspaceResize.setAttribute("aria-orientation", narrow ? "horizontal" : "vertical");
+  return { axis, size, min: narrow ? 160 : 220, max: Math.max(narrow ? 160 : 220, available - (narrow ? 180 : 300) - 8) };
+}, (size) => {
+  const narrow = window.matchMedia("(max-width: 800px)").matches;
+  elements.workspaceResize.parentElement.style.setProperty(narrow ? "--setup-height" : "--setup-width", `${size}px`);
+  if (latest) renderCharts(latest);
+});
+
+bindResize(elements.previewResize, () => ({
+  axis: "y", size: elements.charts.getBoundingClientRect().height, min: 160, max: 1000,
+}), (size) => {
+  elements.charts.style.height = `${size}px`;
+  if (latest) renderCharts(latest);
+});
+
+elements.fitPreview.addEventListener("change", () => { if (latest) renderCharts(latest); });
 
 function renderMarkers(markers) {
   const newest = markers[0]?.sequence ?? -1;

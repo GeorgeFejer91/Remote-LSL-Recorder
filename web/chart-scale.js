@@ -15,3 +15,10 @@ export function channelRanges(samples, channelCount) {
     return { min, max, low: min - pad, high: max + pad };
   });
 }
+
+export function displayChannels(streams, hiddenChannels) {
+  return streams.filter((stream) => stream.selected && !stream.isMarker).flatMap((stream) =>
+    Array.from({ length: stream.channelCount }, (_, channel) => ({
+      stream, channel, key: `${stream.id}\0${channel}`,
+    })).filter(({ key }) => !hiddenChannels.has(key)));
+}

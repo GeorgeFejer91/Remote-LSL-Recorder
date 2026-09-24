@@ -9,11 +9,14 @@ lifecycle, state, and remote authorization. The local interface includes live
 signal previews and a marker timeline. Remote access is off until the operator
 explicitly starts a fresh pairing session.
 
-The viewer puts each numeric stream in a separate chart and each channel in a
-separate lane. Each lane rescales to the minimum and maximum of its current 300
-preview samples; its label, declared unit, and actual range remain visible.
-The checkboxes above the charts control visibility only. The stream checkboxes
-in the left panel determine what the recorder saves to XDF.
+The viewer stacks every channel from recording-selected numeric streams in one
+scrollable preview. Each channel rescales independently to its current 300
+display samples. Drag the preview's lower border to change its height or the
+divider beside the setup panel to change its width. **Fit all channels to
+window** compresses the rows into the preview without an inner scrollbar;
+uncheck it to return to taller, scrollable rows. The **Display channels**
+checkboxes affect the preview only. Stream checkboxes in the left panel decide
+which streams the recorder saves to XDF.
 
 Keyboard and mouse marker checkboxes capture input delivered to the recorder
 window. Keyboard markers contain key down/up, key, code, repeat, and modifiers;

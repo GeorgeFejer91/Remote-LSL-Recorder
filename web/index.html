@@ -45,14 +45,23 @@
       </section>
     </aside>
 
+    <div id="workspace-resize" class="workspace-resize" role="separator" tabindex="0" aria-label="Resize setup and signal viewer" aria-orientation="vertical"></div>
+
     <section class="viewer" aria-label="Live LSL viewer">
       <div class="viewer-heading">
         <h2 data-fit-text="heading">Signals</h2>
-        <span>Last 300 display samples · separate scale for each channel</span>
+        <span>Recording-selected streams · last 300 display samples</span>
       </div>
-      <div id="viewer-streams" class="viewer-streams" role="group" aria-label="Visible signal streams"></div>
-      <div id="charts" class="charts">
-        <p class="empty-state">Numeric streams will appear here.</p>
+      <label class="fit-control"><input id="fit-preview" type="checkbox"> Fit all channels to window</label>
+      <details class="channel-map">
+        <summary id="channel-map-summary">Display channels</summary>
+        <div id="viewer-channels" class="viewer-channels" role="group" aria-label="Channels displayed in the signal preview"></div>
+      </details>
+      <div class="preview-frame">
+        <div id="charts" class="charts" role="region" aria-label="Signal preview" tabindex="0">
+          <p class="empty-state">Select a numeric LSL stream to preview its channels.</p>
+        </div>
+        <div id="preview-resize" class="preview-resize" role="separator" tabindex="0" aria-label="Resize signal preview height" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="1000" aria-valuenow="360"></div>
       </div>
 
       <section class="markers" aria-labelledby="marker-heading">

@@ -160,7 +160,6 @@ fn start_preview_thread(authority: Arc<Mutex<Authority>>, id: String, info: Stre
                     .info()
                     .channels()
                     .into_iter()
-                    .take(16)
                     .map(|channel| ChannelView {
                         label: channel.label.chars().take(64).collect(),
                         unit: channel.unit.chars().take(32).collect(),
@@ -236,7 +235,7 @@ fn run_signal_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut I
                             .filter(|(index, _)| index % stride == 0)
                             .map(|(_, (timestamp, values))| PreviewSample {
                                 timestamp,
-                                values: values.iter().take(16).copied().collect(),
+                                values: values.to_vec(),
                             }),
                     );
                     if stream.view.preview.len() > MAX_PREVIEW_SAMPLES {
