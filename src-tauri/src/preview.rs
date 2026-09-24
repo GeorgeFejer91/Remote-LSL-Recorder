@@ -5,21 +5,24 @@ use crate::types::{
 use chrono::Utc;
 use labstream::{Buffer, Chunk, Format, Inlet, Post, Query, StreamInfo};
 use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    collections::HashMap,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
     time::Duration,
 };
 
 pub struct PreviewService {
-    started: Mutex<HashSet<String>>,
+    started: Mutex<HashMap<String, Arc<AtomicBool>>>,
     excluded_source_id: String,
 }
 
 impl PreviewService {
     pub fn new(excluded_source_id: String) -> Self {
         Self {
-            started: Mutex::new(HashSet::new()),
+            started: Mutex::new(HashMap::new()),
             excluded_source_id,
         }
     }
@@ -31,23 +34,42 @@ impl PreviewService {
         for info in infos
             .into_iter()
             .filter(|info| info.source_id() != self.excluded_source_id)
-            .take(MAX_STREAMS)
         {
+            if unique.len() == MAX_STREAMS {
+                break;
+            }
             unique.entry(stream_id(&info)).or_insert(info);
         }
 
+        let stale;
         {
             let mut state = authority
                 .lock()
                 .map_err(|_| "State lock failed.".to_string())?;
+            stale = state
+                .streams
+                .keys()
+                .filter(|id| !unique.contains_key(*id))
+                .cloned()
+                .collect::<Vec<_>>();
+            for id in &stale {
+                state.streams.remove(id);
+                state.selected_ids.remove(id);
+                state.revision += 1;
+                state.control_revision += 1;
+            }
             for (id, info) in &unique {
                 if let std::collections::hash_map::Entry::Vacant(entry) =
                     state.streams.entry(id.clone())
                 {
                     entry.insert(stream_record(id, info));
-                    if state.recording.phase != "recording" {
-                        state.selected_ids.insert(id.clone());
-                    }
+                    state.revision += 1;
+                    state.control_revision += 1;
+                }
+                if state.recording.phase != "recording"
+                    && state.select_all_streams
+                    && state.selected_ids.insert(id.clone())
+                {
                     state.revision += 1;
                     state.control_revision += 1;
                 }
@@ -58,10 +80,21 @@ impl PreviewService {
             .started
             .lock()
             .map_err(|_| "Preview registry lock failed.".to_string())?;
-        for (id, info) in unique {
-            if started.insert(id.clone()) {
-                start_preview_thread(authority.clone(), id, info);
+        for id in stale {
+            if let Some(active) = started.remove(&id) {
+                active.store(false, Ordering::Release);
             }
+        }
+        for (id, info) in unique {
+            if started
+                .get(&id)
+                .is_some_and(|active| active.load(Ordering::Acquire))
+            {
+                continue;
+            }
+            let active = Arc::new(AtomicBool::new(true));
+            started.insert(id.clone(), active.clone());
+            start_preview_thread(authority.clone(), id, info, active);
         }
 
         let count = authority
@@ -127,7 +160,12 @@ fn is_marker(info: &StreamInfo) -> bool {
         || kind.contains("trigger")
 }
 
-fn start_preview_thread(authority: Arc<Mutex<Authority>>, id: String, info: StreamInfo) {
+fn start_preview_thread(
+    authority: Arc<Mutex<Authority>>,
+    id: String,
+    info: StreamInfo,
+    active: Arc<AtomicBool>,
+) {
     thread::Builder::new()
         .name(format!("lsl-preview-{}", thread_safe_name(&id)))
         .spawn(move || {
@@ -143,15 +181,23 @@ fn start_preview_thread(authority: Arc<Mutex<Authority>>, id: String, info: Stre
             let mut inlet = match inlet {
                 Ok(inlet) => inlet,
                 Err(error) => {
-                    update_error(
-                        &authority,
-                        &id,
-                        format!("Preview connection failed: {error}"),
-                    );
+                    if active.load(Ordering::Acquire) {
+                        update_error(
+                            &authority,
+                            &id,
+                            format!("Preview connection failed: {error}"),
+                            &active,
+                        );
+                    }
+                    active.store(false, Ordering::Release);
                     return;
                 }
             };
+            if !active.load(Ordering::Acquire) {
+                return;
+            }
             if let Ok(mut state) = authority.lock()
+                && active.load(Ordering::Acquire)
                 && let Some(stream) = state.streams.get_mut(&id)
             {
                 stream.view.connected = true;
@@ -168,22 +214,31 @@ fn start_preview_thread(authority: Arc<Mutex<Authority>>, id: String, info: Stre
             }
 
             if marker {
-                run_marker_preview(&authority, &id, &mut inlet);
+                run_marker_preview(&authority, &id, &mut inlet, &active);
             } else {
-                run_signal_preview(&authority, &id, &mut inlet);
+                run_signal_preview(&authority, &id, &mut inlet, &active);
             }
+            active.store(false, Ordering::Release);
         })
         .ok();
 }
 
-fn run_marker_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut Inlet) {
-    loop {
+fn run_marker_preview(
+    authority: &Arc<Mutex<Authority>>,
+    id: &str,
+    inlet: &mut Inlet,
+    active: &AtomicBool,
+) {
+    while active.load(Ordering::Acquire) {
         match inlet.pull_text(Duration::from_millis(100)) {
             Ok(Some((timestamp, values))) => {
                 let mut state = match authority.lock() {
                     Ok(state) => state,
                     Err(_) => return,
                 };
+                if !active.load(Ordering::Acquire) || !state.streams.contains_key(id) {
+                    return;
+                }
                 let name = state
                     .streams
                     .get(id)
@@ -209,23 +264,34 @@ fn run_marker_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut I
             }
             Ok(None) => {}
             Err(error) => {
-                update_error(authority, id, format!("Marker preview stopped: {error}"));
+                update_error(
+                    authority,
+                    id,
+                    format!("Marker preview stopped: {error}"),
+                    active,
+                );
                 return;
             }
         }
     }
 }
 
-fn run_signal_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut Inlet) {
+fn run_signal_preview(
+    authority: &Arc<Mutex<Authority>>,
+    id: &str,
+    inlet: &mut Inlet,
+    active: &AtomicBool,
+) {
     let channels = inlet.info().channel_count();
     let stride = (inlet.info().rate() / 100.0).ceil().max(1.0) as usize;
     let mut chunk = Chunk::<f64>::new(channels, 256);
-    loop {
+    while active.load(Ordering::Acquire) {
         chunk.clear();
         match inlet.pull_chunk(&mut chunk, Duration::from_millis(50)) {
             Ok(0) => {}
             Ok(_) => {
                 if let Ok(mut state) = authority.lock()
+                    && active.load(Ordering::Acquire)
                     && let Some(stream) = state.streams.get_mut(id)
                 {
                     stream.view.preview.extend(
@@ -247,15 +313,21 @@ fn run_signal_preview(authority: &Arc<Mutex<Authority>>, id: &str, inlet: &mut I
                 }
             }
             Err(error) => {
-                update_error(authority, id, format!("Signal preview stopped: {error}"));
+                update_error(
+                    authority,
+                    id,
+                    format!("Signal preview stopped: {error}"),
+                    active,
+                );
                 return;
             }
         }
     }
 }
 
-fn update_error(authority: &Arc<Mutex<Authority>>, id: &str, message: String) {
+fn update_error(authority: &Arc<Mutex<Authority>>, id: &str, message: String, active: &AtomicBool) {
     if let Ok(mut state) = authority.lock()
+        && active.load(Ordering::Acquire)
         && let Some(stream) = state.streams.get_mut(id)
     {
         stream.view.connected = false;

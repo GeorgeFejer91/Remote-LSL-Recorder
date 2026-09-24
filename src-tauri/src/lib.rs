@@ -37,6 +37,11 @@ fn select_stream(
 }
 
 #[tauri::command]
+fn select_all_streams(state: State<'_, AppState>, selected: bool) -> Result<AppSnapshot, String> {
+    state.select_all_streams(selected)
+}
+
+#[tauri::command]
 async fn set_input_markers(
     app: AppHandle,
     keyboard: bool,
@@ -131,6 +136,7 @@ pub fn run() {
             refresh_streams,
             configure_session,
             select_stream,
+            select_all_streams,
             set_input_markers,
             emit_input_marker,
             start_recording,

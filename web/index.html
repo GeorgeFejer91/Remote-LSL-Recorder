@@ -16,7 +16,6 @@
       <p id="system-status" role="status">Starting…</p>
     </div>
     <div class="toolbar">
-      <button id="refresh-streams" type="button" class="secondary" data-fit-text="action">Refresh streams</button>
       <button id="remote-open" type="button" class="secondary" data-fit-text="action">Phone remote</button>
     </div>
   </header>
@@ -25,6 +24,17 @@
     <aside class="setup-panel" aria-label="Recording setup">
       <section>
         <h2 data-fit-text="heading">Session</h2>
+        <div class="record-actions">
+          <button id="record-start" type="button" class="primary" data-fit-text="action">Start recording</button>
+          <button id="record-stop" type="button" class="danger" data-fit-text="action" disabled>Stop recording</button>
+        </div>
+        <div class="record-state" role="status">
+          <span id="record-indicator" aria-hidden="true"></span>
+          <div>
+            <strong id="record-phase">Idle</strong>
+            <span id="record-detail">Configure a participant and select at least one stream.</span>
+          </div>
+        </div>
         <form id="session-form">
           <label for="participant-id">Participant ID</label>
           <input id="participant-id" name="participantId" maxlength="64" autocomplete="off" required>
@@ -34,15 +44,6 @@
         </form>
       </section>
 
-      <section class="stream-section">
-        <div class="section-heading">
-          <h2 data-fit-text="heading">LSL streams</h2>
-          <span id="stream-count">0 found</span>
-        </div>
-        <div id="stream-list" class="stream-list" aria-live="polite">
-          <p class="empty-state">Searching for LSL streams…</p>
-        </div>
-      </section>
     </aside>
 
     <div id="workspace-resize" class="workspace-resize" role="separator" tabindex="0" aria-label="Resize setup and signal viewer" aria-orientation="vertical"></div>
@@ -50,7 +51,11 @@
     <section class="viewer" aria-label="Live LSL viewer">
       <div class="viewer-heading">
         <h2 data-fit-text="heading">Signals</h2>
-        <span>Recording-selected streams · last 300 display samples</span>
+        <span id="stream-count">0 streams found</span>
+      </div>
+      <label class="all-streams"><input id="select-all-streams" type="checkbox" checked> Record all available streams</label>
+      <div id="stream-list" class="stream-list" role="group" aria-label="LSL streams to record" aria-live="polite">
+        <p class="empty-state">Searching for LSL streams…</p>
       </div>
       <label class="fit-control"><input id="fit-preview" type="checkbox"> Fit all channels to window</label>
       <details class="channel-map">
@@ -86,20 +91,6 @@
       </section>
     </section>
   </main>
-
-  <footer class="record-bar">
-    <div class="record-state">
-      <span id="record-indicator" aria-hidden="true"></span>
-      <div>
-        <strong id="record-phase">Idle</strong>
-        <span id="record-detail">Configure a participant and select at least one stream.</span>
-      </div>
-    </div>
-    <div class="record-actions">
-      <button id="record-start" type="button" class="primary" data-fit-text="action">Start recording</button>
-      <button id="record-stop" type="button" class="danger" data-fit-text="action" disabled>Stop recording</button>
-    </div>
-  </footer>
 
   <dialog id="remote-dialog">
     <form method="dialog" class="dialog-title">

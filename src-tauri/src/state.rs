@@ -50,6 +50,7 @@ impl AppState {
         let authority = Authority {
             revision: 0,
             control_revision: 0,
+            select_all_streams: true,
             keyboard_markers: false,
             mouse_markers: false,
             participant_id: String::new(),
@@ -87,12 +88,11 @@ impl AppState {
     }
 
     pub fn refresh_streams(&self) -> Result<AppSnapshot, String> {
-        let count = self.preview.refresh(&self.authority)?;
-        let mut state = self
+        self.preview.refresh(&self.authority)?;
+        let state = self
             .authority
             .lock()
             .map_err(|_| "State lock failed.".to_string())?;
-        state.log(format!("Discovered {count} LSL stream(s)."));
         Ok(state.snapshot())
     }
 
@@ -137,6 +137,36 @@ impl AppState {
         } else {
             state.selected_ids.remove(&stream_id)
         };
+        let select_all = state
+            .streams
+            .keys()
+            .all(|id| state.selected_ids.contains(id));
+        let policy_changed = state.select_all_streams != select_all;
+        state.select_all_streams = select_all;
+        if changed || policy_changed {
+            state.revision += 1;
+            state.control_revision += 1;
+        }
+        Ok(state.snapshot())
+    }
+
+    pub fn select_all_streams(&self, selected: bool) -> Result<AppSnapshot, String> {
+        if self.is_recording()? {
+            return Err("Stream selection is locked while recording.".into());
+        }
+        let mut state = self
+            .authority
+            .lock()
+            .map_err(|_| "State lock failed.".to_string())?;
+        let ids = state.streams.keys().cloned().collect::<HashSet<_>>();
+        let changed = state.select_all_streams != selected
+            || if selected {
+                state.selected_ids != ids
+            } else {
+                !state.selected_ids.is_empty()
+            };
+        state.select_all_streams = selected;
+        state.selected_ids = if selected { ids } else { HashSet::new() };
         if changed {
             state.revision += 1;
             state.control_revision += 1;
@@ -547,6 +577,12 @@ impl AppState {
                 self.select_stream(args.stream_id, args.selected)?;
                 json!({ "selected": args.selected })
             }
+            "set-all-streams-selected" => {
+                let args: AllStreamsSelectionArgs = serde_json::from_value(request.args)
+                    .map_err(|_| "Invalid all-stream selection command.".to_string())?;
+                self.select_all_streams(args.selected)?;
+                json!({ "selected": args.selected })
+            }
             "start-recording" => {
                 ensure_empty_object(&request.args)?;
                 let snapshot = self.start_recording()?;
@@ -659,6 +695,12 @@ struct ParticipantArgs {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct StreamSelectionArgs {
     stream_id: String,
+    selected: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AllStreamsSelectionArgs {
     selected: bool,
 }
 
@@ -797,6 +839,60 @@ fn truncate(value: &str, maximum: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovery_tracks_available_streams_and_record_all_policy() {
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        let source_id = format!("recorder-discovery-test-{}", random_token(8));
+        app.select_all_streams(false).unwrap();
+        let info = StreamInfo::builder("Discovery test", "EEG", Format::Float32)
+            .channel_count(1)
+            .irregular()
+            .source_id(&source_id)
+            .build()
+            .unwrap();
+        let outlet = Outlet::new(info).unwrap();
+        let stream_id = format!("source:{source_id}");
+        let found = (0..5).any(|_| {
+            app.refresh_streams()
+                .unwrap()
+                .streams
+                .iter()
+                .any(|stream| stream.id == stream_id)
+        });
+        assert!(found, "new local LSL stream should appear during discovery");
+        let stream = app
+            .snapshot()
+            .unwrap()
+            .streams
+            .into_iter()
+            .find(|stream| stream.id == stream_id)
+            .unwrap();
+        assert!(
+            !stream.selected,
+            "record all off should leave new streams unselected"
+        );
+        assert!(
+            app.select_all_streams(true)
+                .unwrap()
+                .streams
+                .iter()
+                .any(|stream| stream.id == stream_id && stream.selected)
+        );
+
+        drop(outlet);
+        let gone = (0..5).any(|_| {
+            !app.refresh_streams()
+                .unwrap()
+                .streams
+                .iter()
+                .any(|stream| stream.id == stream_id)
+        });
+        assert!(
+            gone,
+            "departed stream should be removed from the selection list"
+        );
+    }
 
     #[test]
     fn participant_ids_reject_path_characters() {

@@ -11,11 +11,11 @@ const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, arg
 const byId = (id) => document.getElementById(id);
 const elements = {
   status: byId("system-status"),
-  refresh: byId("refresh-streams"),
   sessionForm: byId("session-form"),
   participant: byId("participant-id"),
   output: byId("output-directory"),
   streamCount: byId("stream-count"),
+  selectAllStreams: byId("select-all-streams"),
   streamList: byId("stream-list"),
   setup: document.querySelector(".setup-panel"),
   workspaceResize: byId("workspace-resize"),
@@ -57,6 +57,7 @@ let channelMapSignature = "";
 const hiddenChannels = new Set();
 let markerSequence = -1;
 let busy = false;
+let discoveryFailed = false;
 let remoteRunning = false;
 let remoteClosing = false;
 let inputMarkersPending = false;
@@ -109,10 +110,15 @@ function render(snapshot) {
 }
 
 function renderStreams(snapshot) {
-  elements.streamCount.textContent = `${snapshot.streams.length} found`;
+  elements.streamCount.textContent = `${snapshot.streams.length} stream${snapshot.streams.length === 1 ? "" : "s"} found`;
+  elements.selectAllStreams.checked = snapshot.selectAllStreams;
+  elements.selectAllStreams.indeterminate = snapshot.streams.some((stream) => stream.selected)
+    && snapshot.streams.some((stream) => !stream.selected);
+  elements.selectAllStreams.disabled = snapshot.recording.phase === "recording";
   const nextSignature = JSON.stringify(snapshot.streams.map((stream) => [
-    stream.id, stream.selected, stream.connected, stream.error,
-  ]));
+    stream.id, stream.name, stream.streamType, stream.channelCount, stream.nominalRate,
+    stream.hostname, stream.selected, stream.connected, stream.error,
+  ]).concat(snapshot.recording.phase));
   if (nextSignature === streamSignature) return;
   streamSignature = nextSignature;
   elements.streamList.replaceChildren();
@@ -128,6 +134,7 @@ function renderStreams(snapshot) {
     checkbox.checked = stream.selected;
     checkbox.disabled = snapshot.recording.phase === "recording";
     checkbox.addEventListener("change", () => {
+      if (busy) { checkbox.checked = !checkbox.checked; return; }
       void run("Updating stream selection…", () => invoke("select_stream", {
         streamId: stream.id,
         selected: checkbox.checked,
@@ -138,16 +145,11 @@ function renderStreams(snapshot) {
     const name = textElement("strong", stream.name);
     const detail = textElement(
       "span",
-      `${stream.streamType || "untyped"} · ${stream.channelCount} ch · ${formatRate(stream.nominalRate)} · ${stream.hostname}`,
+      `${stream.streamType || "untyped"} · ${stream.channelCount} ch · ${stream.isMarker ? "marker" : (stream.connected ? "live" : "waiting")}`,
     );
     copy.append(name, detail);
-    const kind = textElement(
-      "span",
-      stream.isMarker ? "marker" : (stream.connected ? "live" : "waiting"),
-      `stream-kind${stream.isMarker ? " marker" : ""}`,
-    );
-    row.title = stream.error || stream.sourceId || stream.id;
-    row.append(checkbox, copy, kind);
+    row.title = stream.error || `${stream.hostname} · ${formatRate(stream.nominalRate)} · ${stream.sourceId || stream.id}`;
+    row.append(checkbox, copy);
     elements.streamList.append(row);
   }
 }
@@ -435,8 +437,11 @@ elements.sessionForm.addEventListener("submit", (event) => {
   })).catch(() => {});
 });
 
-elements.refresh.addEventListener("click", () => {
-  void run("Discovering LSL streams…", () => invoke("refresh_streams")).catch(() => {});
+elements.selectAllStreams.addEventListener("change", () => {
+  if (busy) { if (latest) renderStreams(latest); return; }
+  void run("Updating stream selection…", () => invoke("select_all_streams", {
+    selected: elements.selectAllStreams.checked,
+  })).catch(() => { if (latest) renderStreams(latest); });
 });
 
 elements.recordStart.addEventListener("click", () => {
@@ -597,6 +602,20 @@ function formatBytes(bytes) {
 function titleCase(value) { return String(value || "unknown").replaceAll("-", " ").replace(/^./u, (letter) => letter.toUpperCase()); }
 function readableError(error) { return String(error?.message || error || "Unknown error"); }
 
+async function discoverStreams() {
+  if (!busy) {
+    try {
+      render(await invoke("refresh_streams"));
+      if (discoveryFailed || elements.status.textContent === "Starting…") elements.status.textContent = "Ready";
+      discoveryFailed = false;
+    } catch (error) {
+      discoveryFailed = true;
+      elements.status.textContent = readableError(error);
+    }
+  }
+  window.setTimeout(discoverStreams, 3000);
+}
+
 await poll();
 void mountTextFitting();
-void run("Discovering LSL streams…", () => invoke("refresh_streams")).catch(() => {});
+void discoverStreams();

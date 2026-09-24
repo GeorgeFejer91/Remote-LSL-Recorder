@@ -102,6 +102,7 @@ impl Default for RemoteView {
 pub struct AppSnapshot {
     pub revision: u64,
     pub control_revision: u64,
+    pub select_all_streams: bool,
     pub keyboard_markers: bool,
     pub mouse_markers: bool,
     pub participant_id: String,
@@ -157,6 +158,7 @@ pub struct RemoteSession {
 pub struct Authority {
     pub revision: u64,
     pub control_revision: u64,
+    pub select_all_streams: bool,
     pub keyboard_markers: bool,
     pub mouse_markers: bool,
     pub participant_id: String,
@@ -191,6 +193,7 @@ impl Authority {
         AppSnapshot {
             revision: self.revision,
             control_revision: self.control_revision,
+            select_all_streams: self.select_all_streams,
             keyboard_markers: self.keyboard_markers,
             mouse_markers: self.mouse_markers,
             participant_id: self.participant_id.clone(),

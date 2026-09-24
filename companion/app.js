@@ -14,7 +14,7 @@ const elements = {
   workspace: byId("remote-workspace"),
   participant: byId("participant-id"),
   applyParticipant: byId("apply-participant"),
-  refresh: byId("refresh-streams"),
+  selectAllStreams: byId("select-all-streams"),
   keyboardMarkers: byId("keyboard-markers"),
   mouseMarkers: byId("mouse-markers"),
   streams: byId("stream-list"),
@@ -48,8 +48,9 @@ elements.connect.addEventListener("click", () => { void connect(); });
 elements.applyParticipant.addEventListener("click", () => {
   send(commandForParticipant(elements.participant.value));
 });
-elements.refresh.addEventListener("click", () => send({
-  scope: "recording.control", action: "refresh-streams", args: {},
+elements.selectAllStreams.addEventListener("change", () => send({
+  scope: "recording.control", action: "set-all-streams-selected",
+  args: { selected: elements.selectAllStreams.checked },
 }));
 elements.start.addEventListener("click", () => send({
   scope: "recording.control", action: "start-recording", args: {},
@@ -186,6 +187,10 @@ function renderRecording(recording = {}) {
 }
 
 function renderStreams(streams) {
+  elements.selectAllStreams.checked = Boolean(latest?.selectAllStreams);
+  elements.selectAllStreams.indeterminate = streams.some((stream) => stream.selected)
+    && streams.some((stream) => !stream.selected);
+  elements.selectAllStreams.disabled = latest?.recording?.phase === "recording" || pending > 0;
   elements.streams.replaceChildren();
   if (streams.length === 0) {
     const message = (latest?.streamTotal ?? 0) > 0
@@ -271,7 +276,7 @@ function setControlsBusy(isBusy) {
   elements.start.disabled = isBusy || active;
   elements.stop.disabled = isBusy || !active;
   elements.applyParticipant.disabled = isBusy || active;
-  elements.refresh.disabled = isBusy;
+  elements.selectAllStreams.disabled = isBusy || active;
   elements.keyboardMarkers.disabled = isBusy;
   elements.mouseMarkers.disabled = isBusy;
   for (const checkbox of elements.streams.querySelectorAll("input[type=checkbox]")) {

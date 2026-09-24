@@ -42,6 +42,7 @@ export function compactState(snapshot) {
   const compact = {
     revision: snapshot.revision,
     controlRevision: snapshot.controlRevision,
+    selectAllStreams: snapshot.selectAllStreams,
     approval: snapshot.remote.approval,
     keyboardMarkers: snapshot.keyboardMarkers,
     mouseMarkers: snapshot.mouseMarkers,

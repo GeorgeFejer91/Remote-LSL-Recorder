@@ -85,6 +85,13 @@ pausing or slowing the HTML render loop does not stop preview ingestion or the
 LabRecorder process. The companion must receive marker updates from the same
 authoritative revisioned state rather than maintain a second marker clock.
 
+For stream discovery and selection, start and stop a local LSL outlet while the
+desktop app is open. Its checkbox must appear and disappear without a manual
+refresh. With Record all available streams checked, new streams are selected;
+with it unchecked, new streams remain unselected. Selection stays locked during
+recording, and a stream discovered mid-recording must not be claimed as part of
+that XDF.
+
 For input markers, enable each toggle separately in the desktop window and
 check key down/up plus left/right mouse button coordinates in the marker table.
 Confirm that disabled sources produce no new markers, and independently open an

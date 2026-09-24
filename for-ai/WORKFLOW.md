@@ -35,6 +35,12 @@ facts already obvious from source and tests.
 - Completed, validated implementation work should be pushed promptly under the
   repository's branch/PR policy. This standing rule does not authorize a push
   for read-only review or unrelated local changes.
+- After implementing a product change, update every affected user-facing
+  surface promptly: build and deliver the PC app when desktop behavior changes,
+  and publish the online phone companion when companion behavior changes. When
+  both are affected, coordinate compatible versions and verify both before
+  calling the change complete. A source push alone does not update an installed
+  PC app or prove the online version is live.
 - Never force-push, rewrite shared history, bypass branch protection, bypass
   secret scanning, or publish known-broken/private material.
 - If credentials, network, CI, conflicts, ownership, or validation block

@@ -15,8 +15,11 @@ display samples. Drag the preview's lower border to change its height or the
 divider beside the setup panel to change its width. **Fit all channels to
 window** compresses the rows into the preview without an inner scrollbar;
 uncheck it to return to taller, scrollable rows. The **Display channels**
-checkboxes affect the preview only. Stream checkboxes in the left panel decide
-which streams the recorder saves to XDF.
+checkboxes affect the preview only. Stream checkboxes under **Signals** decide
+which available streams the recorder saves to XDF. Discovery updates them
+automatically. **Record all available streams** selects new arrivals when on;
+turning it off clears the selection. Stream selection is locked during a
+recording, so a stream arriving mid-recording is available for the next XDF.
 
 Keyboard and mouse marker checkboxes capture input delivered to the recorder
 window. Keyboard markers contain key down/up, key, code, repeat, and modifiers;
@@ -32,7 +35,7 @@ after recording starts. Input in other applications is outside this capture.
 2. Scan the QR code, enter a name on the phone, and tap **Connect**.
 3. Check the name on the computer and select **Allow**. **Deny** refuses the request.
 
-The phone can then set the participant ID, refresh and select streams, toggle
+The phone can then set the participant ID, select streams, toggle
 computer input markers, and start or stop recording. The computer owns the XDF
 file and returns a compact live view: recording bytes, stream activity, a small
 first-channel trace for each signal, and recent markers with LSL timestamps.
