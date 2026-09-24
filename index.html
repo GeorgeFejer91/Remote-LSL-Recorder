@@ -7,9 +7,9 @@
   <meta name="theme-color" content="#f3f1eb">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Remote LSL Recorder</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=0.1.4">
   <script src="vendor/vdoninja-sdk.min.js" defer></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=0.1.4"></script>
 </head>
 <body>
   <header class="appbar">
@@ -46,8 +46,8 @@
       <section class="panel">
         <div class="section-heading">
           <h2 data-fit-text="heading">Live streams</h2>
-          <button id="refresh-streams" type="button" class="quiet" data-fit-text="action">Refresh</button>
         </div>
+        <label class="all-streams"><input id="select-all-streams" type="checkbox" checked> Record all available streams</label>
         <p class="stream-note">Small preview of the first channel. XDF records all selected channels.</p>
         <div id="stream-list" class="stream-list"></div>
       </section>
