@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light">
   <title>Remote LSL Recorder</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="external-tabs.css">
   <script src="vendor/vdoninja-sdk.min.js" defer></script>
   <script type="module" src="app.js"></script>
 </head>
@@ -20,7 +21,12 @@
     </div>
   </header>
 
-  <main class="workspace">
+  <nav id="page-tabs" class="page-tabs" role="tablist" aria-label="Recorder and external pages">
+    <button id="recorder-tab" type="button" role="tab" aria-selected="true" aria-controls="recorder-panel" data-fit-text="action">Recorder</button>
+    <button id="add-page-tab" type="button" aria-label="Add external page tab" title="Add external page tab">+</button>
+  </nav>
+
+  <main id="recorder-panel" class="workspace" role="tabpanel" aria-labelledby="recorder-tab">
     <aside class="setup-panel" aria-label="Recording setup">
       <section>
         <h2 data-fit-text="heading">Session</h2>
@@ -91,6 +97,7 @@
       </section>
     </section>
   </main>
+  <div id="external-panels" class="external-panels" hidden></div>
 
   <dialog id="remote-dialog">
     <form method="dialog" class="dialog-title">

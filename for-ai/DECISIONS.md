@@ -102,3 +102,22 @@ decision and link both entries.
 - Consequences: No second media track or screen-capture grant is needed. The
   trace is an activity preview; XDF remains the full-fidelity record.
 - Supersedes: None
+
+## D-0007 — Independent external experiment tabs
+
+- Date: 2026-09-26
+- Status: Accepted
+
+Use HTTPS controller pages in an opaque-origin iframe sandbox with scripts and
+forms only. VDO.Ninja transports each external application's own typed remote
+session; it does not host HTML or share recorder grants. Keep the tab shell as
+browser presentation, persist names/base URLs only, restore unloaded, and
+retain loaded frames across tab selection. Target programs own timing, LSL
+markers, approval, and disconnect policy. External controller assets must
+support opaque-origin CORS; origin-storage-dependent pages need adaptation.
+Explicit Tauri application command permissions protect the Windows native
+boundary. Connector input never enters the recorder input marker stream.
+For pinned VDO SDK 1.5.5, external controllers use the copyable SDK factory to
+disable its optional TURN-list cache when the opaque origin denies storage.
+The SDK otherwise throws before its storage exception handler. Keep proof and
+transport options intact; requalify cache hooks on upgrades.

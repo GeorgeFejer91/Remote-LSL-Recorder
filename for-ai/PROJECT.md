@@ -45,6 +45,18 @@ companion.
   LabRecorder includes it in XDF independently of HTML preview cadence.
 - `web/`: installed Tauri adapter and visualization surface.
 - `companion/`: static BRSP/1 controller; contains no user data or secrets.
+- Both viewers host operator-added experiment controller tabs through an opaque
+  iframe sandbox. Shared tab code/CSS lives in `web/` and is copied to
+  `companion/`. Browser-local preferences save names/base URLs only; restore is
+  inert. External pages own independent pairing, BRSP/VDO sessions, and status;
+  they cannot inherit recorder grants or native commands. See
+  `docs/external-pages.md` for the integration contract.
+- `web/external-page-connector.js` (copied to `companion/`) is a copyable
+  experiment-controller SDK factory. It disables SDK 1.5.5's optional origin
+  storage cache in opaque iframes; upgrades must requalify those pinned hooks.
+- All registered Tauri application commands have a generated command manifest
+  and explicit permissions for bundled `main` content; no remote capabilities
+  are granted. The product remains Windows-first.
 - The phone's miniature viewer receives one first-channel value and a sample
   identifier per stream per bounded state update, and renders a local short
   trace. Recent markers retain their source text and LSL time. XDF acquisition

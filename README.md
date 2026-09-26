@@ -45,6 +45,20 @@ connection or selecting **Stop phone access** revokes approval; start a new
 session to reconnect. The link uses VDO.Ninja data-only WebRTC and requires
 Internet signaling.
 
+## External experiment pages
+
+Select **+** on the desktop or phone to add an experiment controller tab. Give
+it a name, paste its HTTPS page or invitation URL, and select **Load page**.
+Use the experiment page's own Connect/approval controls. Loaded pages remain
+open while switching tabs; **Unload** disconnects the embedded page and
+**Close tab** removes it. Tabs are saved independently on each device, with
+invitation fragments and query strings removed. They restore unloaded.
+
+The page must support sandboxed embedding. Its VDO.Ninja connection goes to
+its own experiment program, which publishes LSL signals and trial markers for
+the recorder. Follow the [external-page integration procedure](docs/external-pages.md)
+for hosting, BRSP wiring, isolation, and acceptance checks.
+
 ## Development
 
 Requirements: Rust 1.88 or newer, Node.js 22 or newer, pnpm, and the Windows
@@ -58,6 +72,13 @@ pnpm tauri dev
 
 Run `pnpm check` for the source and test gates. Downloaded vendor binaries,
 recordings, invitations, and participant data are never committed.
+
+For the optional rendered tab gate, use an available Playwright installation
+(`PLAYWRIGHT_MODULE` may point to its package directory) and run
+`node scripts/check-external-tabs.mjs`. It uses Edge by default; set
+`PLAYWRIGHT_CHANNEL` for another installed Chromium channel. Screenshots go to
+ignored `.for-ai-local/external-tabs/`. This gate uses a deterministic browser
+BRSP fixture and a desktop IPC fake; it does not claim a live VDO or native run.
 
 ## Windows installer
 

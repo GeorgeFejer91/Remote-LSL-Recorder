@@ -125,6 +125,16 @@ marker appears with intact text and LSL time. Inspect the BRSP projection to
 confirm it sends one current numeric value and sample identifier per stream,
 not the desktop preview buffer. Confirm the layout at narrow phone width.
 
+For external tabs, check add/load/switch/unload/close, keyboard tab navigation,
+reload with unloaded restoration, query/fragment removal from preferences,
+malformed storage and unsafe/mixed-content URL rejection. Verify dynamic tab
+labels participate in Pretext measurement and remain accessible at narrow
+widths and enlarged text. Observe a sandboxed secure page using Web Crypto and
+data-only WebRTC while parent DOM/native access fails. Confirm recorder updates
+continue while hidden and connector input is excluded from recorder input
+markers. A real experiment command/acknowledgement, physical phone, VDO route,
+and XDF alignment remain separate integration evidence.
+
 ## Gate 4: publication
 
 1. Review status and diff; preserve unrelated changes.

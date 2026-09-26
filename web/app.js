@@ -6,6 +6,7 @@ import {
 import { timeToX } from "./chart-time.js";
 import { channelRanges, displayChannels } from "./chart-scale.js";
 import { mountTextFitting } from "./text-fit.js";
+import { mountExternalTabs } from "./external-tabs.js";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 const byId = (id) => document.getElementById(id);
@@ -491,18 +492,21 @@ function queueInputMarker(kind, detail) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (event.target.closest?.(".external-page")) return;
   if (latest?.keyboardMarkers && elements.keyboardMarkers.checked) queueInputMarker("key-down", {
     key: event.key, code: event.code, repeat: event.repeat,
     alt: event.altKey, ctrl: event.ctrlKey, shift: event.shiftKey, meta: event.metaKey,
   });
 }, true);
 document.addEventListener("keyup", (event) => {
+  if (event.target.closest?.(".external-page")) return;
   if (latest?.keyboardMarkers && elements.keyboardMarkers.checked) queueInputMarker("key-up", {
     key: event.key, code: event.code,
     alt: event.altKey, ctrl: event.ctrlKey, shift: event.shiftKey, meta: event.metaKey,
   });
 }, true);
 document.addEventListener("mousedown", (event) => {
+  if (event.target.closest?.(".external-page")) return;
   if (latest?.mouseMarkers && elements.mouseMarkers.checked) queueInputMarker("mouse-click", {
     button: event.button, x: event.clientX, y: event.clientY,
     screenX: event.screenX, screenY: event.screenY,
@@ -617,5 +621,6 @@ async function discoverStreams() {
 }
 
 await poll();
+mountExternalTabs();
 void mountTextFitting();
 void discoverStreams();

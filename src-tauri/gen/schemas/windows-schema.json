@@ -177,6 +177,174 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the configure_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-configure-session",
+          "markdownDescription": "Enables the configure_session command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the decide_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-decide-remote",
+          "markdownDescription": "Enables the decide_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the emit_input_marker command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-emit-input-marker",
+          "markdownDescription": "Enables the emit_input_marker command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-snapshot",
+          "markdownDescription": "Enables the get_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the refresh_streams command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-refresh-streams",
+          "markdownDescription": "Enables the refresh_streams command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remote_command command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remote-command",
+          "markdownDescription": "Enables the remote_command command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the report_remote_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-report-remote-status",
+          "markdownDescription": "Enables the report_remote_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the select_all_streams command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-select-all-streams",
+          "markdownDescription": "Enables the select_all_streams command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the select_stream command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-select-stream",
+          "markdownDescription": "Enables the select_stream command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_input_markers command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-input-markers",
+          "markdownDescription": "Enables the set_input_markers command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-recording",
+          "markdownDescription": "Enables the start_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-remote",
+          "markdownDescription": "Enables the start_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-recording",
+          "markdownDescription": "Enables the stop_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-remote",
+          "markdownDescription": "Enables the stop_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the configure_session command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-configure-session",
+          "markdownDescription": "Denies the configure_session command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the decide_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-decide-remote",
+          "markdownDescription": "Denies the decide_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the emit_input_marker command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-emit-input-marker",
+          "markdownDescription": "Denies the emit_input_marker command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-snapshot",
+          "markdownDescription": "Denies the get_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the refresh_streams command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-refresh-streams",
+          "markdownDescription": "Denies the refresh_streams command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remote_command command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remote-command",
+          "markdownDescription": "Denies the remote_command command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the report_remote_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-report-remote-status",
+          "markdownDescription": "Denies the report_remote_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_all_streams command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-select-all-streams",
+          "markdownDescription": "Denies the select_all_streams command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the select_stream command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-select-stream",
+          "markdownDescription": "Denies the select_stream command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_input_markers command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-input-markers",
+          "markdownDescription": "Denies the set_input_markers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-recording",
+          "markdownDescription": "Denies the start_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-remote",
+          "markdownDescription": "Denies the start_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-recording",
+          "markdownDescription": "Denies the stop_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_remote command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-remote",
+          "markdownDescription": "Denies the stop_remote command without any pre-configured scope."
+        },
+        {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
           "type": "string",
           "const": "core:default",

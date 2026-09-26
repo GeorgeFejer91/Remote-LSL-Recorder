@@ -3,5 +3,21 @@
   "identifier": "default",
   "description": "Least-privilege capability for the installed recorder window.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "allow-get-snapshot",
+    "allow-refresh-streams",
+    "allow-configure-session",
+    "allow-select-stream",
+    "allow-select-all-streams",
+    "allow-set-input-markers",
+    "allow-emit-input-marker",
+    "allow-start-recording",
+    "allow-stop-recording",
+    "allow-start-remote",
+    "allow-stop-remote",
+    "allow-decide-remote",
+    "allow-report-remote-status",
+    "allow-remote-command"
+  ]
 }
