@@ -6,7 +6,7 @@ import {
 import { timeToX } from "./chart-time.js";
 import { channelRanges, displayChannels } from "./chart-scale.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs } from "./external-tabs.js";
+import { mountExternalTabs, readLocalTabs } from "./external-tabs.js?v=0.1.6";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 const byId = (id) => document.getElementById(id);
@@ -52,6 +52,9 @@ const elements = {
 
 let latest;
 let sessionInitialized = false;
+let viewerInitialized = false;
+let viewerSaveTimer;
+let viewerSaveQueue = Promise.resolve();
 let streamSignature = "";
 let chartSignature = "";
 let channelMapSignature = "";
@@ -71,7 +74,7 @@ async function run(label, operation) {
   try {
     const value = await operation();
     if (value?.streams) render(value);
-    elements.status.textContent = "Ready";
+    elements.status.textContent = latest?.workspaceWarning || "Ready";
     return value;
   } catch (error) {
     elements.status.textContent = readableError(error);
@@ -84,6 +87,16 @@ async function run(label, operation) {
 function render(snapshot) {
   latest = snapshot;
   updateRemoteSnapshot(snapshot);
+  if (!viewerInitialized) {
+    viewerInitialized = true;
+    const preferences = snapshot.viewer ?? {};
+    for (const key of preferences.hiddenChannels ?? []) hiddenChannels.add(key);
+    elements.fitPreview.checked = Boolean(preferences.fitPreview);
+    if (preferences.setupWidth) elements.workspaceResize.parentElement.style.setProperty("--setup-width", `${preferences.setupWidth}px`);
+    if (preferences.setupHeight) elements.workspaceResize.parentElement.style.setProperty("--setup-height", `${preferences.setupHeight}px`);
+    if (preferences.previewHeight) elements.charts.style.height = `${preferences.previewHeight}px`;
+  }
+  if (snapshot.workspaceWarning) elements.status.textContent = snapshot.workspaceWarning;
   if (!sessionInitialized) {
     elements.participant.value = snapshot.participantId;
     elements.output.value = snapshot.outputDirectory;
@@ -171,6 +184,7 @@ function renderChannelMap(snapshot) {
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) hiddenChannels.delete(key);
           else hiddenChannels.add(key);
+          saveViewer();
           renderChannelMap(latest);
           renderCharts(latest);
         });
@@ -358,6 +372,7 @@ function bindResize(handle, measure, apply) {
     setSize(bounds.size + direction[event.key] * (event.shiftKey ? 40 : 10), bounds);
   });
   const refresh = () => {
+    if (!handle.getClientRects().length) return;
     const bounds = measure();
     if (bounds.size < bounds.min || bounds.size > bounds.max) setSize(bounds.size, bounds);
     else showValue(bounds.size, bounds);
@@ -376,6 +391,7 @@ bindResize(elements.workspaceResize, () => {
 }, (size) => {
   const narrow = window.matchMedia("(max-width: 800px)").matches;
   elements.workspaceResize.parentElement.style.setProperty(narrow ? "--setup-height" : "--setup-width", `${size}px`);
+  saveViewer();
   if (latest) renderCharts(latest);
 });
 
@@ -383,10 +399,27 @@ bindResize(elements.previewResize, () => ({
   axis: "y", size: elements.charts.getBoundingClientRect().height, min: 160, max: 1000,
 }), (size) => {
   elements.charts.style.height = `${size}px`;
+  saveViewer();
   if (latest) renderCharts(latest);
 });
 
-elements.fitPreview.addEventListener("change", () => { if (latest) renderCharts(latest); });
+elements.fitPreview.addEventListener("change", () => { saveViewer(); if (latest) renderCharts(latest); });
+
+function saveViewer() {
+  if (!viewerInitialized) return;
+  clearTimeout(viewerSaveTimer);
+  viewerSaveTimer = setTimeout(() => {
+    const style = elements.workspaceResize.parentElement.style;
+    const preferences = {
+      hiddenChannels: [...hiddenChannels], fitPreview: elements.fitPreview.checked,
+      setupWidth: parseFloat(style.getPropertyValue("--setup-width")) || null,
+      setupHeight: parseFloat(style.getPropertyValue("--setup-height")) || null,
+      previewHeight: parseFloat(elements.charts.style.height) || null,
+    };
+    viewerSaveQueue = viewerSaveQueue.then(() => invoke("set_viewer_preferences", { preferences }))
+      .catch((error) => { elements.status.textContent = readableError(error); });
+  }, 200);
+}
 
 function renderMarkers(markers) {
   const newest = markers[0]?.sequence ?? -1;
@@ -610,7 +643,7 @@ async function discoverStreams() {
   if (!busy) {
     try {
       render(await invoke("refresh_streams"));
-      if (discoveryFailed || elements.status.textContent === "Starting…") elements.status.textContent = "Ready";
+      if (discoveryFailed || elements.status.textContent === "Starting…") elements.status.textContent = latest?.workspaceWarning || "Ready";
       discoveryFailed = false;
     } catch (error) {
       discoveryFailed = true;
@@ -621,6 +654,16 @@ async function discoverStreams() {
 }
 
 await poll();
-mountExternalTabs();
+if (latest && !latest.externalPagesInitialized && !latest.workspaceWarning) {
+  const pages = readLocalTabs(location.href).map((page) => ({ ...page, id: page.id || crypto.randomUUID() }));
+  try {
+    render(await invoke("configure_external_pages", { pages }));
+    localStorage.removeItem("remote-lsl-recorder.external-tabs.v1");
+  } catch (error) { elements.status.textContent = readableError(error); }
+}
+mountExternalTabs({
+  initialTabs: latest?.externalPages ?? [], preload: true,
+  saveTabs: async (pages) => { render(await invoke("configure_external_pages", { pages })); },
+});
 void mountTextFitting();
 void discoverStreams();

@@ -2,7 +2,8 @@ import { BRSPConnection, randomToken } from "./vendor/brsp.js";
 import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 import { commandForParticipant, formatBytes, observeActivity, parseInvite, sparklinePath } from "./core.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs } from "./external-tabs.js";
+import { mountExternalTabs } from "./external-tabs.js?v=0.1.6";
+import { createWorkspaceSync } from "./workspace-sync.js?v=0.1.6";
 
 const byId = (id) => document.getElementById(id);
 const elements = {
@@ -37,6 +38,13 @@ let transport;
 let connection;
 let latest;
 let pending = 0;
+const pageTabs = mountExternalTabs();
+const workspaceSync = createWorkspaceSync({
+  getConnection: () => connection,
+  applyPages: (pages) => pageTabs.applyDesktopPages(pages),
+  clearPages: () => pageTabs.clearDesktopPages(),
+  onError: (message) => setStatus(message),
+});
 const streamHistory = new Map();
 
 if (!invite) {
@@ -86,7 +94,7 @@ async function connect() {
       sharedSecret: invite.secret,
       peerId: `controller_${randomToken(12)}`,
       capabilities: ["command-ack", "state-snapshot", "latest-state"],
-      requestedScopes: ["pairing.request", "recording.observe", "recording.control"],
+      requestedScopes: ["pairing.request", "recording.observe", "recording.control", "workspace.observe"],
       grantedScopes: [],
     });
     transport.addEventListener("status", (event) => {
@@ -102,6 +110,10 @@ async function connect() {
     connection.addEventListener("snapshot", (event) => acceptState(event.detail.state));
     connection.addEventListener("state", (event) => acceptState(event.detail.state));
     connection.addEventListener("commandapplied", (event) => {
+      if (event.detail.pending?.scope === "workspace.observe") {
+        workspaceSync.applied(event.detail);
+        return;
+      }
       if (event.detail.pending?.scope === "pairing.request") {
         setStatus(event.detail.ok
           ? "Waiting for someone at the computer to approve."
@@ -150,6 +162,7 @@ function acceptState(state) {
   if (latest && state.revision < latest.revision) return;
   const previousApproval = latest?.approval;
   latest = state;
+  workspaceSync.observe(state);
   if (state.approval === "denied") {
     disconnect("Access was denied on the computer. Scan a new QR code to try again.");
     return;
@@ -304,6 +317,7 @@ function disconnect(message) {
 }
 
 async function closeConnection() {
+  workspaceSync.clear();
   const current = connection;
   connection = undefined;
   transport = undefined;
@@ -322,5 +336,4 @@ function titleCase(value) {
 }
 
 window.addEventListener("pagehide", () => { void closeConnection(); }, { once: true });
-mountExternalTabs();
 void mountTextFitting();

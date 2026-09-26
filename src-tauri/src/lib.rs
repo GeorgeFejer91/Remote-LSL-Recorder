@@ -1,10 +1,28 @@
 mod preview;
 mod state;
 mod types;
+mod workspace;
 
 use state::AppState;
 use tauri::{AppHandle, Manager, State};
 use types::{AppSnapshot, RemoteCommandOutcome, RemoteCommandRequest, RemoteInvite};
+use workspace::{ExternalPage, ViewerPreferences};
+
+#[tauri::command]
+fn configure_external_pages(
+    state: State<'_, AppState>,
+    pages: Vec<ExternalPage>,
+) -> Result<AppSnapshot, String> {
+    state.configure_external_pages(pages)
+}
+
+#[tauri::command]
+fn set_viewer_preferences(
+    state: State<'_, AppState>,
+    preferences: ViewerPreferences,
+) -> Result<AppSnapshot, String> {
+    state.set_viewer_preferences(preferences)
+}
 
 #[tauri::command]
 fn get_snapshot(state: State<'_, AppState>) -> Result<AppSnapshot, String> {
@@ -128,13 +146,16 @@ pub fn run() {
             } else {
                 packaged_engine
             };
-            app.manage(AppState::new(output, engine));
+            let settings_path = app.path().app_config_dir()?.join("workspace.json");
+            app.manage(AppState::with_workspace(output, engine, settings_path));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
             refresh_streams,
             configure_session,
+            configure_external_pages,
+            set_viewer_preferences,
             select_stream,
             select_all_streams,
             set_input_markers,

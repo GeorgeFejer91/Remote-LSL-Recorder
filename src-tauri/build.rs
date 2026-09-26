@@ -4,6 +4,8 @@ fn main() {
             "get_snapshot",
             "refresh_streams",
             "configure_session",
+            "configure_external_pages",
+            "set_viewer_preferences",
             "select_stream",
             "select_all_streams",
             "set_input_markers",

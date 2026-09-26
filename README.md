@@ -47,17 +47,29 @@ Internet signaling.
 
 ## External experiment pages
 
-Select **+** on the desktop or phone to add an experiment controller tab. Give
-it a name, paste its HTTPS page or invitation URL, and select **Load page**.
-Use the experiment page's own Connect/approval controls. Loaded pages remain
-open while switching tabs; **Unload** disconnects the embedded page and
-**Close tab** removes it. Tabs are saved independently on each device, with
-invitation fragments and query strings removed. They restore unloaded.
+Select **+** on the desktop to add an experiment controller tab. Give it a
+name and HTTPS page/invitation URL, or import the app's `panel.json` descriptor.
+After scanning the recorder QR code and receiving desktop approval, the phone
+automatically receives those panels. Desktop additions, edits, and removals
+follow over the existing BRSP connection. Personal phone tabs remain available.
+Use each experiment page's own Connect/approval controls. Switching tabs keeps
+pages mounted; **Unload** disconnects the page and **Close tab** removes it.
+
+The PC automatically saves the applied participant ID, output directory,
+stream-selection policy and remembered stream IDs, input-marker toggles,
+viewer layout/channel preferences, and panel catalog in its app-config
+`workspace.json`. On startup it restores settings and preloads panel base URLs,
+with recording stopped and phone access inactive. URL queries/fragments and
+session grants are never written to that file. Current panel invitation URLs
+are shared only with an approved phone; its mirrored panels are discarded when
+that recorder session ends.
 
 The page must support sandboxed embedding. Its VDO.Ninja connection goes to
 its own experiment program, which publishes LSL signals and trial markers for
 the recorder. Follow the [external-page integration procedure](docs/external-pages.md)
 for hosting, BRSP wiring, isolation, and acceptance checks.
+Other applications can follow the [Remote Panel/1 profile](docs/remote-panel-profile.md)
+and its [JSON schema](docs/remote-panel.schema.json).
 
 ## Development
 

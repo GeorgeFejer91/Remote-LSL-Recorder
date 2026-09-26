@@ -45,12 +45,21 @@ companion.
   LabRecorder includes it in XDF independently of HTML preview cadence.
 - `web/`: installed Tauri adapter and visualization surface.
 - `companion/`: static BRSP/1 controller; contains no user data or secrets.
-- Both viewers host operator-added experiment controller tabs through an opaque
-  iframe sandbox. Shared tab code/CSS lives in `web/` and is copied to
-  `companion/`. Browser-local preferences save names/base URLs only; restore is
-  inert. External pages own independent pairing, BRSP/VDO sessions, and status;
-  they cannot inherit recorder grants or native commands. See
-  `docs/external-pages.md` for the integration contract.
+- Both viewers host external experiment pages through an opaque iframe sandbox.
+  Shared tab code/CSS lives in `web/` and is copied to `companion/`. Rust owns
+  the desktop catalog and versioned app-config `workspace.json`: session
+  settings, selection policy/remembered IDs, marker toggles, viewer preferences,
+  and base panel URLs. Startup preloads base pages, with recording stopped and
+  remote grants inactive. URL queries/fragments and runtime state are not saved.
+- Approved phones fetch the desktop catalog using revision-checked
+  `workspace.observe/read-page` commands; frequent state carries revision/count
+  only. Mirrored tabs/invitations remain in memory, preserve mounted frames on
+  heartbeats, and clear on recorder revocation. Personal phone tabs have separate
+  browser-local base-URL preferences. External pages keep their own pairing,
+  BRSP/VDO sessions, approval and status. See `docs/external-pages.md`.
+- Other apps can supply an importable Remote Panel/1 `{id,name,url}` descriptor
+  and follow `docs/remote-panel-profile.md`. This is a controller-page contract,
+  not a generic command broker, registration service or native plugin system.
 - `web/external-page-connector.js` (copied to `companion/`) is a copyable
   experiment-controller SDK factory. It disables SDK 1.5.5's optional origin
   storage cache in opaque iframes; upgrades must requalify those pinned hooks.

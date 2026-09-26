@@ -33,6 +33,8 @@ test("phone receives no recorder data before local approval", () => {
     streams: [{ name: "PRIVATE STREAM" }],
     markers: [{ value: "PRIVATE MARKER" }],
     recording: { phase: "recording" },
+    externalPages: [{ id: "private", name: "Private panel", url: "https://example.com/#private-secret" }],
+    externalPagesRevision: 4,
   };
   for (const approval of ["waiting", "pending", "denied", "revoked"]) {
     snapshot.remote.approval = approval;
@@ -45,6 +47,8 @@ test("phone receives no recorder data before local approval", () => {
   snapshot.mouseMarkers = false;
   assert.equal(compactState(snapshot).participantId, "PRIVATE");
   assert.equal(compactState(snapshot).outputDirectory, undefined);
+  assert.deepEqual(compactState(snapshot).externalPages, { revision: 4, count: 1 });
+  assert.ok(!JSON.stringify(compactState(snapshot)).includes("private-secret"));
 });
 
 test("phone receives one bounded numeric preview and marker activity, never signal history", () => {

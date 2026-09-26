@@ -106,7 +106,7 @@ decision and link both entries.
 ## D-0007 — Independent external experiment tabs
 
 - Date: 2026-09-26
-- Status: Accepted
+- Status: Accepted; catalog persistence/phone ownership amended by D-0008
 
 Use HTTPS controller pages in an opaque-origin iframe sandbox with scripts and
 forms only. VDO.Ninja transports each external application's own typed remote
@@ -121,3 +121,26 @@ For pinned VDO SDK 1.5.5, external controllers use the copyable SDK factory to
 disable its optional TURN-list cache when the opaque origin denies storage.
 The SDK otherwise throws before its storage exception handler. Keep proof and
 transport options intact; requalify cache hooks on upgrades.
+
+## D-0008 — Desktop workspace memory and approved panel mirroring
+
+- Date: 2026-09-26
+- Status: Accepted
+- Amends: D-0007's independent catalog ownership and unloaded desktop restoration
+
+Rust persists applied session settings, selection policy/remembered stream IDs,
+marker toggles, viewer preferences and base panel URLs in one versioned local
+workspace file. Writes use a sibling temporary file and replacement; unreadable
+or unsupported files are preserved and reported. Startup restores configuration
+and preloads controller base pages, with recording stopped, empty data history,
+and fresh remote pairing required. Migrate previous desktop browser tabs once.
+
+The desktop catalog is authoritative for mirrored phone panels. After local
+approval, `workspace.observe/read-page` returns one bounded descriptor at a
+requested catalog revision. Regular state announces revision/count only; the
+phone applies complete results and keeps frames across unrelated revisions.
+Current launch queries/fragments may be shared with the approved operator in
+memory but are absent from disk and phone preferences. Revocation closes the
+mirror. Personal phone tabs remain independent. Remote Panel/1 descriptors
+are importable data; each app still owns its pairing, typed commands, reducer,
+timing, multi-controller policy, and LSL markers.

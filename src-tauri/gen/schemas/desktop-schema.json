@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the configure_external_pages command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-configure-external-pages",
+          "markdownDescription": "Enables the configure_external_pages command without any pre-configured scope."
+        },
+        {
           "description": "Enables the configure_session command without any pre-configured scope.",
           "type": "string",
           "const": "allow-configure-session",
@@ -237,6 +243,12 @@
           "markdownDescription": "Enables the set_input_markers command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_viewer_preferences command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-viewer-preferences",
+          "markdownDescription": "Enables the set_viewer_preferences command without any pre-configured scope."
+        },
+        {
           "description": "Enables the start_recording command without any pre-configured scope.",
           "type": "string",
           "const": "allow-start-recording",
@@ -259,6 +271,12 @@
           "type": "string",
           "const": "allow-stop-remote",
           "markdownDescription": "Enables the stop_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the configure_external_pages command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-configure-external-pages",
+          "markdownDescription": "Denies the configure_external_pages command without any pre-configured scope."
         },
         {
           "description": "Denies the configure_session command without any pre-configured scope.",
@@ -319,6 +337,12 @@
           "type": "string",
           "const": "deny-set-input-markers",
           "markdownDescription": "Denies the set_input_markers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_viewer_preferences command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-viewer-preferences",
+          "markdownDescription": "Denies the set_viewer_preferences command without any pre-configured scope."
         },
         {
           "description": "Denies the start_recording command without any pre-configured scope.",

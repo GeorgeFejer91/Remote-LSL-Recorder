@@ -2,11 +2,14 @@
 
 ## Operator procedure
 
-1. Select **+** in the desktop viewer or phone companion. Recorder stays first.
+1. Select **+** in the desktop viewer. Recorder stays first. A phone can also
+   add personal panels in addition to its mirrored desktop panels.
 2. Enter a tab name and the experiment application's HTTPS **controller page**
    URL. An invitation URL may include its fresh room and secret in the fragment.
 3. Select **Load page**, then use that page's own **Connect** button and pairing
    procedure. Approve experiment access in the experiment app.
+   Alternatively choose **Import app panel (.json)** to register a
+   [Remote Panel/1 descriptor](remote-panel-profile.md).
 4. Switch back to **Recorder** to select streams and start XDF recording. Start
    the experiment through its tab when the recorder is ready.
 5. **Unload** destroys the embedded page and its browser connections.
@@ -18,11 +21,22 @@ memory and may open another peer connection. Switching tabs keeps their pages
 mounted. Browsers can throttle hidden pages, and phones can suspend the entire
 viewer. Experiment timing and acquisition must remain in the target program.
 
-Names and base URLs are saved as local presentation preferences on each device.
-They are independent on PC and phone. Query strings and fragments are removed
-before saving, including when restoring older storage. Reload opens Recorder
-and restores unloaded tabs; it does not reconnect external apps. Keep secrets
-out of names and URL paths too. Paste a fresh invitation when reconnecting.
+The desktop owns its catalog and remembers it in its app-config `workspace.json`.
+Startup opens Recorder and preloads the saved base pages. An experiment's own
+Connect operation still requires fresh pairing material and approval. Query
+strings and fragments are removed before writing; keep secrets out of names
+and URL paths too. Previous browser-local desktop tabs are migrated once.
+
+Scan the recorder QR code, enter a name, Connect, and approve the phone on the
+PC. The phone then receives and preloads the desktop panels automatically.
+Edits/removals on PC update that mirror. The phone's mirrored names/URLs are
+read-only; it may unload or reload their pages. The currently loaded desktop
+URL, including any fresh invitation query/fragment, is transmitted only after
+recorder approval. This is intentional sharing with that approved operator;
+it does not replace the experiment's own access checks. Mirrored entries and
+their frames disappear on recorder disconnect/revocation and are never saved
+in phone storage. Personal phone tabs keep their separate base-URL preferences
+and restore unloaded. Desktop panel changes do not overwrite those preferences.
 
 HTTP loopback (`localhost`, `127.0.0.1`, `[::1]`) is allowed in the installed PC
 app and local HTTP development. The hosted HTTPS phone viewer accepts HTTPS
@@ -44,8 +58,14 @@ Remote LSL Recorder desktop / phone
                                           LabRecorder subscriptions
 ```
 
-The tab shell owns only navigation, local tab preferences, and iframe lifetime.
-It never fetches HTML in Rust, forwards Tauri calls, shares recorder invitations,
+Rust owns the desktop workspace and catalog; the tab shell owns navigation and
+iframe lifetime. The approved recorder projection announces a catalog revision
+and count. The phone retrieves each descriptor using scoped, revision-checked
+`workspace.observe/read-page` commands on the reliable BRSP lane, then applies
+the complete catalog. URLs are absent from frequent preview updates. A changed
+catalog discards partial results; regular heartbeats preserve mounted pages.
+
+The shell never fetches HTML in Rust, forwards Tauri calls, shares recorder invitations,
 or dispatches commands from `postMessage`. VDO.Ninja does not serve a remote
 program's HTML. Host the controller's static HTML/CSS/JS over HTTPS; its existing
 VDO integration carries typed experiment commands, acknowledgements, and state.
@@ -53,8 +73,8 @@ VDO integration carries typed experiment commands, acknowledgements, and state.
 The experiment program is authoritative for experiment phase, trial index,
 stimulus timing, device acquisition, and LSL timestamps. The recorder Rust core
 is authoritative for recording and filesystem effects. A controller renders
-confirmed target state. Neither app inherits the other's grants or pairing
-secret. Starting both programs remains two explicit operations; this feature
+confirmed target state. Recorder grants apply only to recorder controls; each
+experiment checks its own invitation and approval. Starting both programs remains two explicit operations; this feature
 does not promise atomic start or synchronized clocks through tab switching.
 Publish trial markers with the LSL clock and record those streams alongside
 signals for alignment in XDF.
@@ -197,6 +217,16 @@ Repository checks cover URL rejection, secret-free preference restoration,
 capability configuration, copied assets, and browser tab behavior. A browser
 fixture is separate evidence from a real experiment, public VDO route, physical
 phone, or recording run.
+
+Workspace restoration also covers the applied participant/output configuration,
+stream-selection policy and remembered IDs, keyboard/mouse marker toggles,
+hidden channels, fit mode, and pane sizes. Recording, signal/marker history,
+output-file lifecycle, recorder/experiment session secrets, approvals, and
+live peer connections are not restored. Saved pane sizes adapt to a smaller
+window. A removed/unavailable stream is remembered by ID and selected when it
+returns while idle; a newly found stream is selected only under the saved
+Record all policy. Invalid or unsupported settings files are preserved, with
+a visible warning and defaults; automatic writes will not overwrite them.
 
 ## References inspected
 

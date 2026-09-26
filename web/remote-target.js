@@ -4,7 +4,7 @@ import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 
 let active;
-export const REMOTE_SCOPES = Object.freeze(["pairing.request", "recording.observe", "recording.control"]);
+export const REMOTE_SCOPES = Object.freeze(["pairing.request", "recording.observe", "recording.control", "workspace.observe"]);
 
 export function compactState(snapshot) {
   if (snapshot.remote.approval !== "approved") {
@@ -47,6 +47,7 @@ export function compactState(snapshot) {
     keyboardMarkers: snapshot.keyboardMarkers,
     mouseMarkers: snapshot.mouseMarkers,
     participantId: snapshot.participantId,
+    externalPages: { revision: snapshot.externalPagesRevision ?? 0, count: snapshot.externalPages?.length ?? 0 },
     streamTotal: snapshot.streams.length,
     markerTotal: snapshot.markers.length,
     streams,
@@ -98,7 +99,8 @@ export async function startRemoteTarget(invite, onStatus) {
     getState: () => context.snapshot,
     applyCommand: async ({ scope, action, args, expectedRevision }) => {
       if (!((scope === "pairing.request" && action === "request-access")
-        || scope === "recording.control")) {
+        || scope === "recording.control"
+        || (scope === "workspace.observe" && action === "read-page"))) {
         return { ok: false, revision: context.snapshot.revision, error: "scope_denied" };
       }
       const outcome = await invoke("remote_command", {

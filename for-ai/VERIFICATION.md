@@ -125,8 +125,9 @@ marker appears with intact text and LSL time. Inspect the BRSP projection to
 confirm it sends one current numeric value and sample identifier per stream,
 not the desktop preview buffer. Confirm the layout at narrow phone width.
 
-For external tabs, check add/load/switch/unload/close, keyboard tab navigation,
-reload with unloaded restoration, query/fragment removal from preferences,
+For external tabs, check add/import/load/switch/unload/close, keyboard navigation,
+desktop restart with preloaded base pages and standalone phone unloaded restoration,
+query/fragment removal from persistence,
 malformed storage and unsafe/mixed-content URL rejection. Verify dynamic tab
 labels participate in Pretext measurement and remain accessible at narrow
 widths and enlarged text. Observe a sandboxed secure page using Web Crypto and
@@ -134,6 +135,22 @@ data-only WebRTC while parent DOM/native access fails. Confirm recorder updates
 continue while hidden and connector input is excluded from recorder input
 markers. A real experiment command/acknowledgement, physical phone, VDO route,
 and XDF alignment remain separate integration evidence.
+
+For workspace memory, verify applied participant/output settings, selection
+policy and stable stream IDs, marker toggles, viewer layout/channel preferences,
+and panel IDs survive restart. Recording and remote grants must stay inactive;
+invitation tokens and data history must not be saved. Corrupt/unsupported files
+must be preserved with a visible warning. Verify old desktop browser tabs migrate
+once, saved pane sizes adapt to narrow windows, and unrelated catalog/viewer
+changes do not advance the recorder control revision.
+
+For mirrored panels, exercise the actual BRSP command/ack path: no catalog before
+desktop approval, automatic phone creation/load afterward, desktop add/edit/remove,
+stable mounted pages across preview heartbeats, catalog-revision conflicts,
+partial-result rejection, and revocation clearing. Each descriptor must stay
+within the reliable envelope bound; preview messages contain only catalog
+metadata. Confirm invitations never enter browser storage. A deterministic
+transport bridge does not establish real VDO, Rust IPC or physical-phone behavior.
 
 ## Gate 4: publication
 

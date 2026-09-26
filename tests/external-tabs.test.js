@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { restoreTabs, savedPageUrl, validatePageUrl } from "../web/external-tabs.js";
+import { parsePanelDescriptor, restoreTabs, savedPageUrl, validatePageUrl } from "../web/external-tabs.js";
 import { createEmbeddedVdoSdk } from "../web/external-page-connector.js";
 
 const desktop = "http://tauri.localhost/";
 const phone = "https://georgefejer91.github.io/Remote-LSL-Recorder/";
+
+test("app panel descriptors accept a bounded navigation contract and reject extra instructions", () => {
+  const descriptor = { id: "experiment_1", name: " Experiment ", url: "https://example.com/control#fresh" };
+  assert.deepEqual(parsePanelDescriptor(JSON.stringify(descriptor), phone), { ...descriptor, name: "Experiment" });
+  for (const value of [null, [], {}, { ...descriptor, script: "execute" }, { ...descriptor, url: "file:///C:/secret" }, { ...descriptor, id: "../path" }]) {
+    assert.throws(() => parsePanelDescriptor(JSON.stringify(value), phone));
+  }
+  assert.throws(() => parsePanelDescriptor("x".repeat(16_385), phone));
+});
 
 test("the pinned SDK connector tolerates denied origin storage without changing session options", () => {
   const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

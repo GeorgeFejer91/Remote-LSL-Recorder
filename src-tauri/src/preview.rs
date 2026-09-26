@@ -67,7 +67,7 @@ impl PreviewService {
                     state.control_revision += 1;
                 }
                 if state.recording.phase != "recording"
-                    && state.select_all_streams
+                    && (state.select_all_streams || state.remembered_selected_ids.contains(id))
                     && state.selected_ids.insert(id.clone())
                 {
                     state.revision += 1;

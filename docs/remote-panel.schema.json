@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Remote Panel/1",
+  "description": "An operator-selected external controller panel. URLs are navigation data, never native fetch or command instructions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "url"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[^\u0000-\u001f\u007f]+$" },
+    "url": { "type": "string", "format": "uri", "maxLength": 4096 }
+  }
+}

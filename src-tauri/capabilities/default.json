@@ -8,6 +8,8 @@
     "allow-get-snapshot",
     "allow-refresh-streams",
     "allow-configure-session",
+    "allow-configure-external-pages",
+    "allow-set-viewer-preferences",
     "allow-select-stream",
     "allow-select-all-streams",
     "allow-set-input-markers",

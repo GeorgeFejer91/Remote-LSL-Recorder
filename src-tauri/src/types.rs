@@ -1,3 +1,4 @@
+use crate::workspace::{ExternalPage, ViewerPreferences};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -107,6 +108,11 @@ pub struct AppSnapshot {
     pub mouse_markers: bool,
     pub participant_id: String,
     pub output_directory: String,
+    pub external_pages: Vec<ExternalPage>,
+    pub external_pages_revision: u64,
+    pub external_pages_initialized: bool,
+    pub viewer: ViewerPreferences,
+    pub workspace_warning: Option<String>,
     pub streams: Vec<StreamView>,
     pub markers: Vec<MarkerEvent>,
     pub recording: RecordingView,
@@ -163,8 +169,14 @@ pub struct Authority {
     pub mouse_markers: bool,
     pub participant_id: String,
     pub output_directory: String,
+    pub external_pages: Vec<ExternalPage>,
+    pub external_pages_revision: u64,
+    pub external_pages_initialized: bool,
+    pub viewer: ViewerPreferences,
+    pub workspace_warning: Option<String>,
     pub streams: HashMap<String, StreamRecord>,
     pub selected_ids: HashSet<String>,
+    pub remembered_selected_ids: HashSet<String>,
     pub markers: VecDeque<MarkerEvent>,
     pub next_marker_sequence: u64,
     pub recording: RecordingView,
@@ -198,6 +210,11 @@ impl Authority {
             mouse_markers: self.mouse_markers,
             participant_id: self.participant_id.clone(),
             output_directory: self.output_directory.clone(),
+            external_pages: self.external_pages.clone(),
+            external_pages_revision: self.external_pages_revision,
+            external_pages_initialized: self.external_pages_initialized,
+            viewer: self.viewer.clone(),
+            workspace_warning: self.workspace_warning.clone(),
             streams,
             markers: self.markers.iter().rev().cloned().collect(),
             recording: self.recording.clone(),

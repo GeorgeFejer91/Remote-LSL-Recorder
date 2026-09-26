@@ -1,3 +1,4 @@
+use crate::workspace::{ExternalPage, ViewerPreferences, WorkspaceSettings, normalize_pages};
 use crate::{
     preview::PreviewService,
     types::{
@@ -41,6 +42,8 @@ pub struct AppState {
     input_outlet: Mutex<Option<Outlet>>,
     recorder: Mutex<Option<RecordingProcess>>,
     engine_directory: PathBuf,
+    workspace_path: Option<PathBuf>,
+    workspace_readable: bool,
     shutting_down: AtomicBool,
 }
 
@@ -55,8 +58,14 @@ impl AppState {
             mouse_markers: false,
             participant_id: String::new(),
             output_directory: output_directory.display().to_string(),
+            external_pages: Vec::new(),
+            external_pages_revision: 0,
+            external_pages_initialized: false,
+            viewer: ViewerPreferences::default(),
+            workspace_warning: None,
             streams: HashMap::new(),
             selected_ids: HashSet::new(),
+            remembered_selected_ids: HashSet::new(),
             markers: VecDeque::new(),
             next_marker_sequence: 0,
             recording: RecordingView::default(),
@@ -71,8 +80,94 @@ impl AppState {
             input_outlet: Mutex::new(None),
             recorder: Mutex::new(None),
             engine_directory,
+            workspace_path: None,
+            workspace_readable: true,
             shutting_down: AtomicBool::new(false),
         }
+    }
+
+    pub fn with_workspace(output: PathBuf, engine: PathBuf, path: PathBuf) -> Self {
+        let mut app = Self::new(output, engine);
+        app.workspace_path = Some(path.clone());
+        match WorkspaceSettings::load(&path) {
+            Ok(Some(settings)) => {
+                let mut state = app.authority.lock().expect("new authority lock");
+                state.participant_id = settings.participant_id;
+                state.output_directory = settings.output_directory;
+                state.select_all_streams = settings.select_all_streams;
+                state.remembered_selected_ids = settings.selected_stream_ids;
+                state.keyboard_markers = settings.keyboard_markers;
+                state.mouse_markers = settings.mouse_markers;
+                state.external_pages = settings.external_pages;
+                state.external_pages_initialized = true;
+                state.viewer = settings.viewer;
+                if (state.keyboard_markers || state.mouse_markers)
+                    && let Err(error) = app.ensure_input_outlet()
+                {
+                    state.keyboard_markers = false;
+                    state.mouse_markers = false;
+                    state.workspace_warning = Some(error);
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                app.workspace_readable = false;
+                app.authority
+                    .lock()
+                    .expect("new authority lock")
+                    .workspace_warning = Some(error);
+            }
+        }
+        app
+    }
+
+    fn save_workspace(&self, state: &mut Authority) -> Result<(), String> {
+        let Some(path) = &self.workspace_path else {
+            return Ok(());
+        };
+        let result = if self.workspace_readable {
+            WorkspaceSettings::save(path, state)
+        } else {
+            Err("The unreadable workspace file is preserved. Repair or move it, then restart to save settings.".into())
+        };
+        match result {
+            Ok(()) => {
+                state.workspace_warning = None;
+                Ok(())
+            }
+            Err(error) => {
+                let warning = format!("Current settings are in memory only. {error}");
+                state.workspace_warning = Some(warning.clone());
+                Err(warning)
+            }
+        }
+    }
+
+    pub fn configure_external_pages(
+        &self,
+        pages: Vec<ExternalPage>,
+    ) -> Result<AppSnapshot, String> {
+        let pages = normalize_pages(pages, false)?;
+        let mut state = self.authority.lock().map_err(|_| "State lock failed.")?;
+        if state.external_pages != pages {
+            state.external_pages = pages;
+            state.external_pages_revision += 1;
+            state.revision += 1;
+        }
+        state.external_pages_initialized = true;
+        self.save_workspace(&mut state)?;
+        Ok(state.snapshot())
+    }
+
+    pub fn set_viewer_preferences(
+        &self,
+        preferences: ViewerPreferences,
+    ) -> Result<AppSnapshot, String> {
+        preferences.validate()?;
+        let mut state = self.authority.lock().map_err(|_| "State lock failed.")?;
+        state.viewer = preferences;
+        self.save_workspace(&mut state)?;
+        Ok(state.snapshot())
     }
 
     pub fn snapshot(&self) -> Result<AppSnapshot, String> {
@@ -118,6 +213,7 @@ impl AppState {
             state.revision += 1;
             state.control_revision += 1;
         }
+        self.save_workspace(&mut state)?;
         Ok(state.snapshot())
     }
 
@@ -133,8 +229,10 @@ impl AppState {
             return Err("The selected stream is no longer available.".into());
         }
         let changed = if selected {
+            state.remembered_selected_ids.insert(stream_id.clone());
             state.selected_ids.insert(stream_id)
         } else {
+            state.remembered_selected_ids.remove(&stream_id);
             state.selected_ids.remove(&stream_id)
         };
         let select_all = state
@@ -143,10 +241,13 @@ impl AppState {
             .all(|id| state.selected_ids.contains(id));
         let policy_changed = state.select_all_streams != select_all;
         state.select_all_streams = select_all;
+        let selected_ids = state.selected_ids.clone();
+        state.remembered_selected_ids.extend(selected_ids);
         if changed || policy_changed {
             state.revision += 1;
             state.control_revision += 1;
         }
+        self.save_workspace(&mut state)?;
         Ok(state.snapshot())
     }
 
@@ -166,11 +267,13 @@ impl AppState {
                 !state.selected_ids.is_empty()
             };
         state.select_all_streams = selected;
+        state.remembered_selected_ids.clear();
         state.selected_ids = if selected { ids } else { HashSet::new() };
         if changed {
             state.revision += 1;
             state.control_revision += 1;
         }
+        self.save_workspace(&mut state)?;
         Ok(state.snapshot())
     }
 
@@ -188,6 +291,7 @@ impl AppState {
             state.revision += 1;
             state.control_revision += 1;
         }
+        self.save_workspace(&mut state)?;
         Ok(state.snapshot())
     }
 
@@ -549,11 +653,34 @@ impl AppState {
                     error: None,
                 });
             }
-            if request.scope != "recording.control" {
-                return Ok(rejected_command(state.revision, "scope_denied"));
-            }
             if state.remote.approval != "approved" {
                 return Ok(rejected_command(state.revision, "approval_required"));
+            }
+            if request.scope == "workspace.observe" && request.action == "read-page" {
+                #[derive(Deserialize)]
+                #[serde(rename_all = "camelCase", deny_unknown_fields)]
+                struct PageArgs {
+                    catalog_revision: u64,
+                    index: usize,
+                }
+                let args: PageArgs = serde_json::from_value(request.args)
+                    .map_err(|_| "Invalid page catalog request.")?;
+                if args.catalog_revision != state.external_pages_revision {
+                    return Ok(rejected_command(state.revision, "catalog_changed"));
+                }
+                let page = state.external_pages.get(args.index);
+                if page.is_none() {
+                    return Ok(rejected_command(state.revision, "page_not_found"));
+                }
+                return Ok(RemoteCommandOutcome {
+                    ok: true,
+                    revision: state.revision,
+                    result: json!({ "catalogRevision": args.catalog_revision, "index": args.index, "page": page }),
+                    error: None,
+                });
+            }
+            if request.scope != "recording.control" {
+                return Ok(rejected_command(state.revision, "scope_denied"));
             }
             if let Some(expected) = request.expected_revision
                 && expected != state.control_revision
@@ -726,7 +853,7 @@ fn rejected_command(revision: u64, error: &str) -> RemoteCommandOutcome {
     }
 }
 
-fn validate_participant(value: &str) -> Result<String, String> {
+pub(crate) fn validate_participant(value: &str) -> Result<String, String> {
     let value = value.trim();
     if value.is_empty() || value.chars().count() > 64 {
         return Err("Participant ID must contain 1 to 64 characters.".into());
@@ -839,6 +966,166 @@ fn truncate(value: &str, maximum: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workspace_restores_configuration_but_never_recording_or_grants() {
+        let root = std::env::temp_dir().join(format!("recorder-workspace-{}", random_token(12)));
+        let path = root.join("workspace.json");
+        let app = AppState::with_workspace(root.join("recordings"), PathBuf::new(), path.clone());
+        app.configure_session(
+            "P-remembered".into(),
+            root.join("recordings").display().to_string(),
+        )
+        .unwrap();
+        app.select_all_streams(false).unwrap();
+        app.authority
+            .lock()
+            .unwrap()
+            .remembered_selected_ids
+            .insert("source:stable-sensor".into());
+        let page = ExternalPage {
+            id: "experiment-1".into(),
+            name: "Experiment".into(),
+            url: "https://example.com/controller?token=session-secret#room=live".into(),
+        };
+        app.configure_external_pages(vec![page.clone()]).unwrap();
+        let preferences = ViewerPreferences {
+            fit_preview: true,
+            setup_width: Some(480.0),
+            ..Default::default()
+        };
+        app.set_viewer_preferences(preferences.clone()).unwrap();
+        app.set_input_markers(true, false).unwrap();
+        let invite = app.start_remote().unwrap();
+        let request = || RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "workspace.observe".into(),
+            action: "read-page".into(),
+            args: json!({ "catalogRevision": 1, "index": 0 }),
+            expected_revision: None,
+        };
+        assert_eq!(
+            app.remote_command(request()).unwrap().error.as_deref(),
+            Some("approval_required")
+        );
+        app.remote_command(RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "pairing.request".into(),
+            action: "request-access".into(),
+            args: json!({ "name": "Test phone" }),
+            expected_revision: None,
+        })
+        .unwrap();
+        app.decide_remote(true).unwrap();
+        let shared = app.remote_command(request()).unwrap();
+        assert!(shared.ok);
+        assert_eq!(shared.result["page"]["url"], page.url);
+        let bytes = fs::read_to_string(&path).unwrap();
+        assert!(!bytes.contains("session-secret") && !bytes.contains(&invite.secret));
+        app.stop_remote().unwrap();
+        assert!(app.remote_command(request()).is_err());
+        app.shutdown();
+        let restored =
+            AppState::with_workspace(root.join("other-default"), PathBuf::new(), path.clone());
+        let snapshot = restored.snapshot().unwrap();
+        assert_eq!(snapshot.participant_id, "P-remembered");
+        assert!(!snapshot.select_all_streams);
+        assert!(snapshot.keyboard_markers && !snapshot.mouse_markers);
+        assert_eq!(snapshot.viewer, preferences);
+        assert_eq!(snapshot.external_pages[0].id, page.id);
+        assert_eq!(
+            snapshot.external_pages[0].url,
+            "https://example.com/controller"
+        );
+        assert_eq!(snapshot.recording.phase, "idle");
+        assert!(!snapshot.remote.active);
+        assert!(
+            restored
+                .authority
+                .lock()
+                .unwrap()
+                .remembered_selected_ids
+                .contains("source:stable-sensor")
+        );
+        restored.shutdown();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_workspace_is_preserved_and_cannot_be_silently_overwritten() {
+        let root = std::env::temp_dir().join(format!("recorder-workspace-{}", random_token(12)));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("workspace.json");
+        fs::write(&path, "broken user file").unwrap();
+        let app = AppState::with_workspace(root.join("recordings"), PathBuf::new(), path.clone());
+        assert!(app.snapshot().unwrap().workspace_warning.is_some());
+        assert!(app.configure_external_pages(vec![]).is_err());
+        assert_eq!(fs::read_to_string(path).unwrap(), "broken user file");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn panel_catalog_rejects_unsafe_urls_and_stale_or_unapproved_reads() {
+        for url in [
+            "javascript:alert(1)",
+            "file:///C:/private",
+            "http://192.168.1.2/",
+            "https://user:pass@example.com/",
+        ] {
+            assert!(
+                normalize_pages(
+                    vec![ExternalPage {
+                        id: "one".into(),
+                        name: "Panel".into(),
+                        url: url.into()
+                    }],
+                    false
+                )
+                .is_err()
+            );
+        }
+        let page = ExternalPage {
+            id: "one".into(),
+            name: "Panel".into(),
+            url: "https://example.com/".into(),
+        };
+        assert!(normalize_pages(vec![page.clone(), page.clone()], false).is_err());
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        app.configure_external_pages(vec![page]).unwrap();
+        let control_revision = app.snapshot().unwrap().control_revision;
+        let invite = app.start_remote().unwrap();
+        app.remote_command(RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "pairing.request".into(),
+            action: "request-access".into(),
+            args: json!({ "name": "Test phone" }),
+            expected_revision: None,
+        })
+        .unwrap();
+        app.decide_remote(true).unwrap();
+        let read = |revision, index| RemoteCommandRequest {
+            grant_token: invite.grant_token.clone(),
+            scope: "workspace.observe".into(),
+            action: "read-page".into(),
+            args: json!({ "catalogRevision": revision, "index": index }),
+            expected_revision: None,
+        };
+        assert_eq!(
+            app.remote_command(read(0, 0)).unwrap().error.as_deref(),
+            Some("catalog_changed")
+        );
+        assert_eq!(
+            app.remote_command(read(1, 1)).unwrap().error.as_deref(),
+            Some("page_not_found")
+        );
+        let before = app.snapshot().unwrap().revision;
+        assert!(app.remote_command(read(1, 0)).unwrap().ok);
+        assert_eq!(app.snapshot().unwrap().revision, before);
+        assert_eq!(
+            control_revision, 0,
+            "catalog edits must not invalidate recorder commands"
+        );
+    }
 
     #[test]
     fn discovery_tracks_available_streams_and_record_all_policy() {
