@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#f3f1eb">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:; media-src 'none'; object-src 'none'; frame-src https: http://localhost:* http://127.0.0.1:* http://[::1]:*; base-uri 'none'; form-action 'none'">
   <title>Remote LSL Recorder</title>
-  <link rel="stylesheet" href="styles.css?v=0.1.4">
+  <link rel="stylesheet" href="styles.css?v=0.1.5">
+  <link rel="stylesheet" href="external-tabs.css?v=0.1.5">
   <script src="vendor/vdoninja-sdk.min.js" defer></script>
-  <script type="module" src="app.js?v=0.1.4"></script>
+  <script type="module" src="app.js?v=0.1.5"></script>
 </head>
 <body>
   <header class="appbar">
@@ -21,6 +22,11 @@
   </header>
 
   <main>
+    <nav id="page-tabs" class="page-tabs" role="tablist" aria-label="Recorder and external pages">
+      <button id="recorder-tab" type="button" role="tab" aria-selected="true" aria-controls="recorder-panel" data-fit-text="action">Recorder</button>
+      <button id="add-page-tab" type="button" aria-label="Add external page tab" title="Add external page tab">+</button>
+    </nav>
+    <div id="recorder-panel" role="tabpanel" aria-labelledby="recorder-tab">
     <section id="pairing-panel" class="panel pairing">
       <h2 data-fit-text="heading">Join the recorder</h2>
       <p id="pairing-copy">This invitation gives temporary access to one recorder session.</p>
@@ -78,6 +84,8 @@
         <label><input id="mouse-markers" type="checkbox"> Mouse click markers with coordinates</label>
       </section>
     </div>
+    </div>
+    <div id="external-panels" class="external-panels" hidden></div>
   </main>
 
   <footer>

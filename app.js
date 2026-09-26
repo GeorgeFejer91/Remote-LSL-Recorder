@@ -2,6 +2,7 @@ import { BRSPConnection, randomToken } from "./vendor/brsp.js";
 import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 import { commandForParticipant, formatBytes, observeActivity, parseInvite, sparklinePath } from "./core.js";
 import { mountTextFitting } from "./text-fit.js";
+import { mountExternalTabs } from "./external-tabs.js";
 
 const byId = (id) => document.getElementById(id);
 const elements = {
@@ -321,4 +322,5 @@ function titleCase(value) {
 }
 
 window.addEventListener("pagehide", () => { void closeConnection(); }, { once: true });
+mountExternalTabs();
 void mountTextFitting();

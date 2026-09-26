@@ -1,4 +1,4 @@
-import { clearCache, measureNaturalWidth, prepareWithSegments } from "./vendor/pretext/layout.js";
+import { clearCache, measureLineStats, measureNaturalWidth, prepareWithSegments } from "./vendor/pretext/layout.js";
 
 export function chooseLargestFittingSize(min, preferred, fits) {
   if (fits(preferred)) return { size: preferred, fits: true };
@@ -29,7 +29,7 @@ export async function mountTextFitting(root = document) {
     await root.fonts.ready;
   } catch { /* A fallback font can still be measured. */ }
 
-  const labels = [...root.querySelectorAll("[data-fit-text]")];
+  const labels = new Set(root.querySelectorAll("[data-fit-text]"));
   const dirty = new Set(labels);
   let frame = 0;
   function measure(element) {
@@ -49,7 +49,8 @@ export async function mountTextFitting(root = document) {
         whiteSpace: "normal", wordBreak: "normal",
         letterSpacing: style.letterSpacing === "normal" ? 0 : parseFloat(style.letterSpacing),
       });
-      return measureNaturalWidth(prepared) <= width + 0.5;
+      return measureNaturalWidth(prepared) <= width - 1
+        && measureLineStats(prepared, width).lineCount <= 1;
     };
     try { return { element, preferred, ...chooseLargestFittingSize(min, preferred, fits) }; }
     catch { return { element, preferred, size: min, fits: false }; }
@@ -80,12 +81,27 @@ export async function mountTextFitting(root = document) {
       const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
       const label = target?.closest("[data-fit-text]");
       if (label) schedule(label);
+      for (const node of record.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        for (const added of [node, ...node.querySelectorAll("[data-fit-text]")]) {
+          if (!added.matches("[data-fit-text]") || labels.has(added)) continue;
+          labels.add(added);
+          observer.observe(added);
+          schedule(added);
+        }
+      }
+    }
+    for (const label of labels) {
+      if (label.isConnected) continue;
+      observer.unobserve(label);
+      labels.delete(label);
+      dirty.delete(label);
     }
   });
   for (const label of labels) {
     observer.observe(label);
-    mutations.observe(label, { subtree: true, childList: true, characterData: true });
   }
+  mutations.observe(root.body, { subtree: true, childList: true, characterData: true });
   const refit = () => { for (const label of labels) schedule(label); };
   const fontChanged = () => { clearCache(); refit(); };
   root.fonts.addEventListener?.("loadingdone", fontChanged);
