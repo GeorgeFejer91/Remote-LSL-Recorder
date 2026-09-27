@@ -3,9 +3,22 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { parsePanelDescriptor, restoreTabs, savedPageUrl, validatePageUrl } from "../web/external-tabs.js";
 import { createEmbeddedVdoSdk } from "../web/external-page-connector.js";
+import { createPanelLink, readPanelLink } from "../web/panel-link.js";
 
 const desktop = "http://tauri.localhost/";
 const phone = "https://georgefejer91.github.io/Remote-LSL-Recorder/";
+
+test("panel links preserve Unicode metadata and reject malformed or foreign links", () => {
+  const page = { id: "experiment", name: "Überprüfung 中文", url: "https://example.com/operator/" };
+  const link = createPanelLink(page);
+  assert.deepEqual(parsePanelDescriptor(readPanelLink(link), phone), page);
+  assert.equal(readPanelLink("https://example.com/#panel=e30"), null);
+  assert.equal(readPanelLink(phone), null);
+  assert.throws(() => readPanelLink(`${phone}#panel=%`));
+  assert.throws(() => readPanelLink(`${phone}#panel=${"a".repeat(21_847)}`));
+  assert.throws(() => parsePanelDescriptor(readPanelLink(createPanelLink({ ...page, script: "run" })), phone));
+  assert.equal(parsePanelDescriptor(readPanelLink(createPanelLink({ ...page, url: savedPageUrl("https://example.com/operator/?secret=private#invite=private") })), phone).url, page.url);
+});
 
 test("app panel descriptors accept a bounded navigation contract and reject extra instructions", () => {
   const descriptor = { id: "experiment_1", name: " Experiment ", url: "https://example.com/control#fresh" };

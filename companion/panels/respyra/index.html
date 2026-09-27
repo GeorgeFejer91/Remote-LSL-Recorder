@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src wss://wss.vdo.ninja https://turn.vdo.ninja; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Respyra experiment viewer</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./vendor/vdoninja-sdk.min.js" defer></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body><main>
+  <header><h1 data-measure>Respyra 2.0</h1><p data-measure>Read-only experiment viewer</p></header>
+  <p id="connection-status" role="status" aria-live="polite" data-measure>Disconnected. Start the viewer in the Respyra desktop window for a fresh invitation.</p>
+  <form id="pairing" autocomplete="off">
+    <label><span data-measure>Private Respyra viewer link</span><input id="invitation" type="url" maxlength="4096" spellcheck="false" required></label>
+    <div class="actions"><button id="connect" type="submit" data-measure>Connect</button><button id="disconnect" type="button" disabled data-measure>Disconnect</button></div>
+  </form>
+  <section id="observation" hidden aria-labelledby="progress-heading">
+    <h2 id="progress-heading" data-measure>Experiment progress</h2>
+    <dl class="progress">
+      <dt data-measure>Status</dt><dd id="phase" data-measure></dd>
+      <dt data-measure>Input</dt><dd id="input-state" data-measure></dd>
+      <dt data-measure>Trial</dt><dd id="trial" data-measure></dd>
+      <dt data-measure>Condition</dt><dd id="condition" data-measure></dd>
+      <dt data-measure>Phase</dt><dd id="experiment-phase" data-measure></dd>
+      <dt data-measure>Screen</dt><dd id="screen" data-measure></dd>
+      <dt data-measure>Latest event</dt><dd id="event" data-measure></dd>
+      <dt data-measure>Marker sequence</dt><dd id="sequence" data-measure></dd>
+      <dt data-measure>Marker LSL time</dt><dd id="lsl-time" data-measure></dd>
+    </dl>
+    <p data-measure>Participant input and experiment controls remain in Respyra. Keep the LSL recorder running for raw breathing data and complete markers.</p>
+  </section>
+</main></body></html>

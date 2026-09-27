@@ -1,7 +1,7 @@
 {
   "name": "remote-lsl-recorder",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "scripts": {
     "tauri": "tauri",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@chenglou/pretext": "0.0.9",
-    "@fontsource/noto-sans": "5.2.8"
+    "@fontsource/noto-sans": "5.2.8",
+    "qrcode-generator": "2.0.4"
   }
 }

@@ -136,6 +136,13 @@ continue while hidden and connector input is excluded from recorder input
 markers. A real experiment command/acknowledgement, physical phone, VDO route,
 and XDF alignment remain separate integration evidence.
 
+For panel sharing, run `node scripts/check-panel-sharing.mjs` with Playwright
+available. Check local QR rendering, base-URL JSON export, paste/import and
+fragment-scrubbed review-before-load. QR camera scanning is a separate physical
+phone check. Respyra's `pnpm check:remote` exercises its actual modules inside
+the Recorder iframe with deterministic/public-VDO transport and mocked native
+IPC; preserve those evidence limits when publishing its copied assets.
+
 For workspace memory, verify applied participant/output settings, selection
 policy and stable stream IDs, marker toggles, viewer layout/channel preferences,
 and panel IDs survive restart. Recording and remote grants must stay inactive;

@@ -1,3 +1,6 @@
+import qrcode from "./vendor/qrcode/qrcode.mjs";
+import { createPanelLink, readPanelLink } from "./panel-link.js";
+
 const STORAGE_KEY = "remote-lsl-recorder.external-tabs.v1";
 
 // URLs are browser navigation only, never recorder commands or native fetches.
@@ -11,6 +14,7 @@ export function validatePageUrl(value, hostUrl) {
     throw new Error("Use HTTPS. HTTP localhost is available only in the desktop app or local development.");
   }
   if (url.username || url.password) throw new Error("URLs with embedded usernames or passwords are not supported.");
+  if (new TextEncoder().encode(url.href).byteLength > 4096) throw new Error("Use a page URL of at most 4096 bytes after normalization.");
   return url;
 }
 
@@ -50,7 +54,7 @@ export function parsePanelDescriptor(raw, hostUrl) {
   return { id: page.id, name: page.name.trim(), url: validatePageUrl(page.url, hostUrl).href };
 }
 
-export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {}) {
+export function mountExternalTabs({ initialTabs, saveTabs, preload = false, panelLink } = {}) {
   const bar = document.getElementById("page-tabs");
   const recorder = document.getElementById("recorder-panel");
   const panels = document.getElementById("external-panels");
@@ -110,12 +114,22 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
     panel.dataset.origin = mirrored ? "desktop" : "local";
     const form = element("form", "", "page-connector");
     const nameInput = input(`${id}-name`, "text", name, 80);
-    const urlInput = input(`${id}-url`, "url", url, 4096);
+    const urlInput = input(`${id}-url`, "url", url, 22_000);
     urlInput.placeholder = "https://experiment.example/controller/";
     const load = action("Load page", "submit");
     const unload = action("Unload");
     unload.disabled = true;
     const close = action("Close tab");
+    const share = action("Share panel");
+    const download = action("Download panel JSON");
+    const shareBox = element("div", "", "page-share");
+    shareBox.hidden = true;
+    const linkInput = input(`${id}-link`, "url", "", 22_000);
+    linkInput.readOnly = true;
+    const copy = action("Copy panel link");
+    const qr = element("div", "", "page-qr");
+    shareBox.append(field("Panel link", linkInput), copy, qr,
+      element("p", "This link shares the base page. Recorder pairing and experiment invitations stay separate.", "page-help"));
     close.hidden = mirrored;
     nameInput.disabled = mirrored;
     urlInput.disabled = mirrored;
@@ -124,7 +138,7 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
     const importField = field("Import app panel (.json)", importInput);
     importField.hidden = mirrored;
     const actions = element("div", "", "page-actions");
-    actions.append(unload, close);
+    actions.append(unload, share, download, close);
     form.append(field("Tab name", nameInput), field("Remote page URL", urlInput), importField, load);
     const status = element("p", "Enter the experiment’s controller page or invitation URL, then Load page. Connect inside that page.", "page-status");
     status.setAttribute("role", "status");
@@ -137,7 +151,7 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
     const viewport = element("div", "", "page-viewport");
     const empty = element("p", "No external page loaded.", "page-empty");
     viewport.append(empty);
-    panel.append(settings, actions, status, viewport);
+    panel.append(settings, actions, shareBox, status, viewport);
     panels.append(panel);
     const tab = { id: pageId, name, url: url ? savedPageUrl(url) : "", launchUrl: url, button, panel, mirrored };
     tabs.push(tab);
@@ -148,7 +162,51 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
       viewport.replaceChildren(empty);
       urlInput.value = tab.url;
       unload.disabled = true;
+      shareBox.hidden = true;
+      linkInput.value = "";
+      qr.replaceChildren();
     }
+    function descriptor() {
+      return parsePanelDescriptor(JSON.stringify({ id: tab.id, name: nameInput.value.trim(),
+        url: savedPageUrl(validatePageUrl(mirrored ? tab.launchUrl : urlInput.value, location.href)) }), location.href);
+    }
+    share.addEventListener("click", () => {
+      try {
+        const page = descriptor();
+        // Hosted phones cannot navigate the PC's localhost.
+        validatePageUrl(page.url, "https://panel.example/");
+        linkInput.value = createPanelLink(page);
+        shareBox.hidden = false;
+        qr.replaceChildren();
+        try {
+          const code = qrcode(0, "M");
+          code.addData(linkInput.value, "Byte");
+          code.make();
+          const image = document.createElement("img");
+          image.alt = `QR code for ${page.name} panel link`;
+          image.src = code.createDataURL(4, 16);
+          qr.append(image);
+          status.textContent = "Panel link and QR code ready. They contain no saved query or invitation fragment.";
+        } catch {
+          status.textContent = "This URL is too long for a QR code. Copy the panel link or download its JSON.";
+        }
+      } catch (error) { status.textContent = error.message; }
+    });
+    copy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(linkInput.value); status.textContent = "Panel link copied."; }
+      catch { linkInput.focus(); linkInput.select(); status.textContent = "Select and copy the panel link manually."; }
+    });
+    download.addEventListener("click", () => {
+      try {
+        const page = descriptor();
+        const blob = URL.createObjectURL(new Blob([JSON.stringify(page, null, 2)], { type: "application/json" }));
+        const anchor = document.createElement("a");
+        anchor.href = blob;
+        anchor.download = `${page.id}.panel.json`;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(blob), 1000);
+      } catch (error) { status.textContent = error.message; }
+    });
     function loadPage(target) {
       stop();
       tab.url = savedPageUrl(target);
@@ -208,6 +266,16 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       try {
+        if (!mirrored) {
+          const raw = readPanelLink(urlInput.value);
+          if (raw !== null) {
+            const entry = parsePanelDescriptor(raw, location.href);
+            if (tabs.some((other) => other !== tab && !other.mirrored && other.id === entry.id)) throw new Error("This panel ID is already added.");
+            tab.id = entry.id;
+            nameInput.value = entry.name;
+            urlInput.value = entry.url;
+          }
+        }
         const target = validatePageUrl(mirrored ? tab.launchUrl : urlInput.value, location.href);
         const nextName = nameInput.value.trim();
         if (!nextName || nextName.length > 80) throw new Error("Enter a tab name of 1–80 characters.");
@@ -252,6 +320,20 @@ export function mountExternalTabs({ initialTabs, saveTabs, preload = false } = {
     for (const entry of saved) create(entry, false);
   } catch { /* Private browser mode can deny storage. Tabs still work. */ }
   select(undefined, false);
+  if (panelLink) {
+    try {
+      const raw = readPanelLink(panelLink);
+      if (raw !== null) {
+        const entry = parsePanelDescriptor(raw, location.href);
+        if (tabs.some((tab) => !tab.mirrored && tab.id === entry.id)) throw new Error("This panel ID is already added. Use its existing tab or close it before importing a replacement.");
+        const tab = create(entry);
+        tab.panel.querySelector(".page-status").textContent = "Shared panel received. Review the URL, then Load page and connect inside it.";
+      }
+    } catch (error) {
+      const tab = create();
+      tab.panel.querySelector(".page-status").textContent = error.message;
+    }
+  }
   window.addEventListener("resize", () => requestAnimationFrame(() => {
     bar.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }));

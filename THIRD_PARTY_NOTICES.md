@@ -1,5 +1,19 @@
 # Third-party notices
 
+## QR code generator
+
+Panel sharing bundles qrcode-generator 2.0.4 (MIT). Generation runs locally.
+Its license is included beside the vendored module.
+
+- Source: https://github.com/kazuhikoarase/qrcode-generator
+
+## Respyra observer panel
+
+`companion/panels/respyra/` contains generated static assets from Respyra 2.0,
+with exact source revision in `source.json`. Transport, QR, typography and font
+licenses/provenance are included in its vendor directory. No experiment data
+or private invitations are shipped.
+
 ## LabRecorder and liblsl
 
 Remote LSL Recorder supervises the unmodified `LabRecorderCLI.exe` and

@@ -79,8 +79,25 @@ do not infer Start/Stop actions from DOM elements or forward generic JavaScript.
 - Restart the PC app: base pages and settings restore, with recording stopped,
   remote access inactive, and fresh experiment pairing required.
 - Observe an app command reach its authoritative reducer and its applied
-  acknowledgement return on PC and physical phone. Exercise denial, stale
+  acknowledgement return when the panel supports commands. Read-only panels
+  grant only observation, refuse commands/intent and return sanitized native
+  state. Exercise denial, stale
   revision, disconnect, and backgrounding. Record the actual VDO route.
 - Publish trial markers and signals through LSL; independently inspect their
   alignment in the recorder's XDF. Layout/browser tests alone do not establish
   experimental or recording correctness.
+
+## Share a panel
+
+In a + tab, **Share panel** creates a local QR and companion link. The URL
+contains a UTF-8 Remote Panel/1 descriptor encoded as unpadded base64url in
+`#panel=`. Opening it validates and scrubs the fragment, then creates an
+unloaded tab for review. Pasting that link as a page URL imports the descriptor.
+**Download panel JSON** exports the same stable registration metadata.
+Both exports strip app invitation queries/fragments. If a link exceeds QR
+capacity, copy the link or use JSON; it is never truncated or sent to a QR
+service. This is navigation data, not experiment authentication.
+
+The first adopted app is [Respyra 2.0](respyra-panel.md), an authenticated
+read-only experiment observer. Its stable descriptor and reviewed controller
+are published under `panels/respyra/`; source remains in the Respyra repo.

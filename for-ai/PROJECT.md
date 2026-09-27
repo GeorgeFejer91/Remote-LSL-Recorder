@@ -60,6 +60,11 @@ companion.
 - Other apps can supply an importable Remote Panel/1 `{id,name,url}` descriptor
   and follow `docs/remote-panel-profile.md`. This is a controller-page contract,
   not a generic command broker, registration service or native plugin system.
+- The + flow generates local panel QR/share links and base-URL JSON downloads.
+  Shared `#panel=` descriptors are validated and scrubbed on opening, with
+  review/load required. Respyra 2.0 is the first adopted observer panel: source
+  remains in its repo and its reviewed static assets are published at
+  `companion/panels/respyra/`, pinned by `source.json`. See `docs/respyra-panel.md`.
 - `web/external-page-connector.js` (copied to `companion/`) is a copyable
   experiment-controller SDK factory. It disables SDK 1.5.5's optional origin
   storage cache in opaque iframes; upgrades must requalify those pinned hooks.

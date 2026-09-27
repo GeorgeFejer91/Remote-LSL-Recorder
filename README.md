@@ -71,6 +71,11 @@ for hosting, BRSP wiring, isolation, and acceptance checks.
 Other applications can follow the [Remote Panel/1 profile](docs/remote-panel-profile.md)
 and its [JSON schema](docs/remote-panel.schema.json).
 
+**Share panel** creates a local QR code and a link that opens this panel in the
+phone viewer. **Download panel JSON** exports its stable base URL. Invitation
+queries/fragments are excluded; app pairing remains separate.
+[Respyra 2.0](docs/respyra-panel.md) is the first integrated experiment viewer.
+
 ## Development
 
 Requirements: Rust 1.88 or newer, Node.js 22 or newer, pnpm, and the Windows

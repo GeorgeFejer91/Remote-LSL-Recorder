@@ -49,7 +49,7 @@ const server = createServer(async (req, res) => {
       if (!file.startsWith(`${root}\\`) && !file.startsWith(`${root}/`)) throw new Error("Outside root");
       body = await readFile(file);
     }
-    const type = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2" }[extname(path)] || "application/octet-stream";
+    const type = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".woff2": "font/woff2" }[extname(path)] || "application/octet-stream";
     res.writeHead(200, { "Content-Type": type, "Access-Control-Allow-Origin": "*" });
     res.end(body);
   } catch { res.writeHead(404); res.end(); }
@@ -156,7 +156,7 @@ try {
       await page.setViewportSize({ width, height });
       await page.locator('[role="tab"][aria-selected="true"][data-fit-state]').waitFor();
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${surface} overflows at ${width}`);
-      const visibleLabels = await page.locator(".external-page:not([hidden]) button[data-fit-text]").evaluateAll((nodes) => nodes.map((node) => ({
+      const visibleLabels = await page.locator(".external-page:not([hidden]) button[data-fit-text]").evaluateAll((nodes) => nodes.filter((node) => node.getBoundingClientRect().width).map((node) => ({
         fit: node.dataset.fitState, clipped: node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1,
       })));
       assert.ok(visibleLabels.every((label) => label.fit && !label.clipped), JSON.stringify(visibleLabels));

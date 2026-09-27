@@ -6,7 +6,7 @@ import {
 import { timeToX } from "./chart-time.js";
 import { channelRanges, displayChannels } from "./chart-scale.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs, readLocalTabs } from "./external-tabs.js?v=0.1.6";
+import { mountExternalTabs, readLocalTabs } from "./external-tabs.js?v=0.1.7";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 const byId = (id) => document.getElementById(id);

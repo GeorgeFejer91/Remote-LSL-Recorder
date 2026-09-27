@@ -2,8 +2,8 @@ import { BRSPConnection, randomToken } from "./vendor/brsp.js";
 import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 import { commandForParticipant, formatBytes, observeActivity, parseInvite, sparklinePath } from "./core.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs } from "./external-tabs.js?v=0.1.6";
-import { createWorkspaceSync } from "./workspace-sync.js?v=0.1.6";
+import { mountExternalTabs } from "./external-tabs.js?v=0.1.7";
+import { createWorkspaceSync } from "./workspace-sync.js?v=0.1.7";
 
 const byId = (id) => document.getElementById(id);
 const elements = {
@@ -29,6 +29,7 @@ const elements = {
   revision: byId("revision"),
 };
 
+const launchPanelLink = window.location.href;
 const invite = parseInvite(window.location.hash);
 if (window.location.hash) {
   history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
@@ -38,7 +39,7 @@ let transport;
 let connection;
 let latest;
 let pending = 0;
-const pageTabs = mountExternalTabs();
+const pageTabs = mountExternalTabs({ panelLink: launchPanelLink });
 const workspaceSync = createWorkspaceSync({
   getConnection: () => connection,
   applyPages: (pages) => pageTabs.applyDesktopPages(pages),

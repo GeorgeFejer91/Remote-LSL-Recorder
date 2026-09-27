@@ -1,4 +1,4 @@
-import { validatePageUrl } from "./external-tabs.js?v=0.1.6";
+import { validatePageUrl } from "./external-tabs.js?v=0.1.7";
 
 // Catalog pages travel individually on BRSP's reliable command/ack lane.
 // The frequent preview state carries only a revision and count.

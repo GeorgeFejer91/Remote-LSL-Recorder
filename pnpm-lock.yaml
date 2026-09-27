@@ -14,6 +14,9 @@ importers:
       '@fontsource/noto-sans':
         specifier: 5.2.8
         version: 5.2.8
+      qrcode-generator:
+        specifier: 2.0.4
+        version: 2.0.4
     devDependencies:
       '@tauri-apps/cli':
         specifier: 2.11.4
@@ -103,6 +106,9 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
+  qrcode-generator@2.0.4:
+    resolution: {integrity: sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g==}
+
 snapshots:
 
   '@chenglou/pretext@0.0.9': {}
@@ -155,3 +161,5 @@ snapshots:
       '@tauri-apps/cli-win32-arm64-msvc': 2.11.4
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.4
       '@tauri-apps/cli-win32-x64-msvc': 2.11.4
+
+  qrcode-generator@2.0.4: {}

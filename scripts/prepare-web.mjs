@@ -21,10 +21,13 @@ const files = [
   [resolve(root, "web/external-tabs.js"), "external-tabs.js"],
   [resolve(root, "web/external-tabs.css"), "external-tabs.css"],
   [resolve(root, "web/external-page-connector.js"), "external-page-connector.js"],
+  [resolve(root, "web/panel-link.js"), "panel-link.js"],
+  [resolve(root, "node_modules/qrcode-generator/dist/qrcode.mjs"), "vendor/qrcode/qrcode.mjs"],
+  [resolve(root, "web/vendor/qrcode/LICENSE"), "vendor/qrcode/LICENSE"],
 ];
 
 for (const [source, relative] of files) {
-  for (const surface of ["text-fit.js", "external-tabs.js", "external-tabs.css", "external-page-connector.js"].includes(relative) ? ["companion"] : ["web", "companion"]) {
+  for (const surface of ["text-fit.js", "external-tabs.js", "external-tabs.css", "external-page-connector.js", "panel-link.js", "vendor/qrcode/LICENSE"].includes(relative) ? ["companion"] : ["web", "companion"]) {
     const destination = resolve(root, surface, relative);
     if (check) {
       const [expected, actual] = await Promise.all([readFile(source), readFile(destination)]);
