@@ -14,22 +14,25 @@
   <header><h1 data-measure>Respyra 2.0</h1><p data-measure>Read-only experiment viewer</p></header>
   <p id="connection-status" role="status" aria-live="polite" data-measure>Disconnected. Start the viewer in the Respyra desktop window for a fresh invitation.</p>
   <form id="pairing" autocomplete="off">
-    <label><span data-measure>Private Respyra viewer link</span><input id="invitation" type="url" maxlength="4096" spellcheck="false" required></label>
+    <label id="invitation-field"><span data-measure>Private Respyra viewer link</span><input id="invitation" type="url" maxlength="4096" spellcheck="false" required></label>
     <div class="actions"><button id="connect" type="submit" data-measure>Connect</button><button id="disconnect" type="button" disabled data-measure>Disconnect</button></div>
   </form>
-  <section id="observation" hidden aria-labelledby="progress-heading">
-    <h2 id="progress-heading" data-measure>Experiment progress</h2>
+  <section id="observation" hidden aria-label="Experiment progress">
     <dl class="progress">
       <dt data-measure>Status</dt><dd id="phase" data-measure></dd>
-      <dt data-measure>Input</dt><dd id="input-state" data-measure></dd>
-      <dt data-measure>Trial</dt><dd id="trial" data-measure></dd>
-      <dt data-measure>Condition</dt><dd id="condition" data-measure></dd>
-      <dt data-measure>Phase</dt><dd id="experiment-phase" data-measure></dd>
-      <dt data-measure>Screen</dt><dd id="screen" data-measure></dd>
+      <dt data-measure>Trial</dt><dd id="trial-summary" data-measure></dd>
+      <dt data-measure>Phase</dt><dd id="phase-summary" data-measure></dd>
       <dt data-measure>Latest event</dt><dd id="event" data-measure></dd>
-      <dt data-measure>Marker sequence</dt><dd id="sequence" data-measure></dd>
-      <dt data-measure>Marker LSL time</dt><dd id="lsl-time" data-measure></dd>
     </dl>
-    <p data-measure>Participant input and experiment controls remain in Respyra. Keep the LSL recorder running for raw breathing data and complete markers.</p>
+    <details class="diagnostics"><summary data-measure>Connection details</summary>
+      <p data-measure>VDO.Ninja · data-only WebRTC · read-only</p>
+      <p id="route" data-measure></p>
+      <dl class="progress">
+        <dt data-measure>Input</dt><dd id="input-state" data-measure></dd>
+        <dt data-measure>Revision</dt><dd id="revision" data-measure></dd>
+        <dt data-measure>Marker sequence</dt><dd id="sequence" data-measure></dd>
+        <dt data-measure>Marker LSL time</dt><dd id="lsl-time" data-measure></dd>
+      </dl>
+    </details>
   </section>
 </main></body></html>
