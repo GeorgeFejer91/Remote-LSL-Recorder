@@ -25,6 +25,8 @@ async function stop(message = 'Disconnected. Create a fresh viewer invitation in
   byId('invitation').required = true;
   byId('invitation').disabled = false;
   byId('connect').disabled = false;
+  byId('connect').hidden = false;
+  byId('invitation-field').hidden = false;
   byId('disconnect').disabled = true;
   byId('observation').hidden = true;
   byId('connection-status').textContent = message;
@@ -37,6 +39,7 @@ async function connect() {
   invitation = parseInvitation(byId('invitation').value) ?? invitation;
   if (!invitation) { byId('connection-status').textContent = 'Paste a fresh private viewer link from Respyra.'; return; }
   byId('invitation').value = '';
+  byId('invitation-field').hidden = true;
   const context = { route: 'unknown', lastState: 0, started: performance.now() };
   active = context;
   byId('connect').disabled = true;
@@ -56,10 +59,14 @@ async function connect() {
       context.revision = value.revision;
       context.lastState = performance.now();
       byId('observation').hidden = false;
-      byId('phase').textContent = value.phase.replaceAll('_', ' ');
+      byId('connect').hidden = true;
+      byId('phase').textContent = { starting: 'Starting', waiting_recorder: 'Waiting for recorder', setup: 'Setup', experiment: 'Running', finished: 'Finished', error: 'Needs attention' }[value.phase];
       byId('input-state').textContent = value.phase === 'setup' ? value.inputReady ? 'Ready' : 'Not ready' : 'See the local runner';
-      for (const [id, key] of [['trial', 'trial'], ['condition', 'condition'], ['experiment-phase', 'experimentPhase'], ['screen', 'screen'], ['event', 'event'], ['sequence', 'seq'], ['lsl-time', 'lslTime']]) byId(id).textContent = value[key] === null ? '—' : String(value[key]);
-      byId('connection-status').textContent = `Authenticated read-only viewer · route ${context.route} · revision ${value.revision}`;
+      byId('trial-summary').textContent = [value.trial, value.condition].filter(value => value !== null).join(' · ') || '—';
+      byId('phase-summary').textContent = [value.experimentPhase, value.screen].filter(Boolean).join(' · ') || '—';
+      for (const [id, key] of [['event', 'event'], ['sequence', 'seq'], ['lsl-time', 'lslTime'], ['revision', 'revision']]) byId(id).textContent = value[key] === null ? '—' : String(value[key]);
+      byId('route').textContent = `Route: ${context.route}`;
+      byId('connection-status').textContent = 'Connected. Live experiment progress.';
     };
     context.connection.addEventListener('snapshot', event => state(event.detail.state));
     context.connection.addEventListener('state', event => state(event.detail.state));
@@ -78,3 +85,4 @@ async function connect() {
 
 // A fragment invitation makes Connect valid without exposing the secret in a field.
 byId('invitation').required = !invitation;
+byId('invitation-field').hidden = Boolean(invitation);
