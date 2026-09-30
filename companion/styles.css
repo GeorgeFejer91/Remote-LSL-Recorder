@@ -1,0 +1,179 @@
+:root {
+  color: #21251f;
+  background: #f3f1eb;
+  font-family: Aptos, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  --line: #d9d5ca;
+  --muted: #6b7068;
+  --green: #276749;
+  --red: #a83c35;
+  --paper: #fffefb;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 280px;
+  margin: 0;
+  background: #f3f1eb;
+}
+
+button, input { font: inherit; }
+
+button {
+  min-height: 44px;
+  border: 1px solid #1f4d39;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  color: #fff;
+  background: var(--green);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:disabled { cursor: default; opacity: 0.45; }
+
+button.secondary {
+  border-color: var(--line);
+  color: #30352e;
+  background: #f6f4ee;
+}
+
+button.quiet {
+  min-height: 36px;
+  border: 0;
+  padding: 0.35rem 0.5rem;
+  color: var(--green);
+  background: transparent;
+}
+
+button.danger { border-color: #7e2f2a; background: var(--red); }
+
+.appbar {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(243, 241, 235, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+h1, h2, p { margin: 0; }
+h1 { margin-top: 0.15rem; font-size: 1.15rem; letter-spacing: -0.02em; }
+h2 { font-size: 1rem; letter-spacing: -0.01em; }
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  color: var(--muted);
+  background: var(--paper);
+  font-size: 0.75rem;
+}
+
+.pill.live { border-color: #9bc0ac; color: #174c33; background: #e8f3ec; }
+
+main {
+  width: min(100%, 42rem);
+  margin: 0 auto;
+  padding: 0.85rem 0.75rem 6rem;
+}
+
+#remote-workspace { display: grid; gap: 0.75rem; }
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  background: var(--paper);
+  box-shadow: 0 1px 1px rgba(29, 34, 28, 0.04);
+}
+
+.pairing { display: grid; gap: 0.9rem; margin-top: 8vh; text-align: center; }
+.pairing p { color: var(--muted); line-height: 1.45; }
+.status { min-height: 1.4em; font-size: 0.85rem; }
+
+.recording-panel,
+.section-heading,
+.stream-row,
+.inline-form {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.recording-panel p { margin-top: 0.35rem; color: var(--muted); font-size: 0.8rem; }
+.record-actions { display: flex; gap: 0.4rem; }
+
+label {
+  display: block;
+  margin: 0.9rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #c9c5b9;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  color: inherit;
+  background: #fff;
+}
+
+.section-heading > span { color: var(--muted); font-size: 0.75rem; }
+.stream-list { margin-top: 0.6rem; }
+
+.stream-row {
+  min-height: 48px;
+  border-top: 1px solid #ece9e1;
+  padding: 0.5rem 0;
+}
+
+.stream-row:first-child { border-top: 0; }
+.stream-row input { width: 20px; min-height: 20px; accent-color: var(--green); }
+.stream-copy { min-width: 0; flex: 1; }
+.stream-copy strong, .stream-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stream-copy strong { font-size: 0.88rem; }
+.stream-copy span { margin-top: 0.15rem; color: var(--muted); font-size: 0.72rem; }
+.stream-kind { color: var(--muted); font-size: 0.68rem; text-transform: uppercase; }
+.stream-kind.marker { color: #865110; }
+.empty { padding: 1rem 0; color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+.marker-list { margin: 0.55rem 0 0; padding: 0; list-style: none; }
+.marker-list li { border-top: 1px solid #ece9e1; padding: 0.65rem 0; }
+.marker-list li:first-child { border-top: 0; }
+.marker-value { display: block; overflow-wrap: anywhere; font: 0.85rem/1.35 "Cascadia Mono", Consolas, monospace; }
+.marker-meta { display: block; margin-top: 0.2rem; color: var(--muted); font-size: 0.69rem; }
+
+footer {
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+@media (max-width: 390px) {
+  .appbar { align-items: flex-start; }
+  .recording-panel { align-items: flex-start; flex-direction: column; }
+  .record-actions { width: 100%; }
+  .record-actions button { flex: 1; }
+}
