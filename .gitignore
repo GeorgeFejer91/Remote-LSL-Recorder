@@ -16,6 +16,7 @@ Thumbs.db
 # Rust, Node, and Tauri outputs
 /target/
 /src-tauri/target/
+/src-tauri/gen/
 /node_modules/
 
 # Fetched recording engine and non-Windows generated Tauri assets
