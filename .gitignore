@@ -12,3 +12,17 @@ Thumbs.db
 *.swp
 *.tmp
 *.log
+
+# Rust, Node, and Tauri outputs
+/target/
+/src-tauri/target/
+/node_modules/
+
+# Fetched recording engine and non-Windows generated Tauri assets
+/vendor/labrecorder-win/
+/src-tauri/icons/*
+!/src-tauri/icons/icon.ico
+
+# Research data and local runtime state
+/recordings/
+/artifacts/
