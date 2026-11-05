@@ -126,11 +126,17 @@ installation does not launch the application. The current location is the
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Remote LSL Recorder`;
 remove its surrounding quotes and append the `MainBinaryName` value. The
 uninstaller is `uninstall.exe` in that directory and accepts `/S`.
+Installation and uninstallation refuse to continue while Recorder is running;
+stop any recording and close the program first. Neither path terminates it.
+Reinstallation updates the managed files in place and never runs an existing
+uninstaller. Use Windows Apps or the installed uninstaller to remove Recorder.
 
 The manually dispatched **Windows installer smoke** workflow checks an exact
 release installer hash on a disposable Windows host: installed resources and
 registration, native window creation, idle recording, clean exit, and silent
-uninstall. This does not qualify physical phone control or hardware recording.
+uninstall. It also verifies that installation and uninstallation refuse a
+running Recorder without terminating it or changing its executable. This does
+not qualify physical phone control or hardware recording.
 
 AI-agent project context starts at [`for-ai/README.md`](./for-ai/README.md).
 
