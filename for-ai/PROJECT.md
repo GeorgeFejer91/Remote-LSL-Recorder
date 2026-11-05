@@ -118,3 +118,10 @@ Release installation remains current-user and independent of any joint
 installer. `scripts/smoke-windows-installer.ps1` deliberately refuses ordinary
 desktop hosts; live-PC installation is coordinated separately. No recorder or
 remote defaults change for the combined installer.
+The NSIS hook overrides Tauri's shared running-process macro for installation
+and uninstallation: maintenance aborts with a nonzero result while Recorder is
+running, preserving the process and any active recording. Never restore the
+upstream silent force-termination path for this recording application.
+The maintained template is pinned to Tauri CLI 2.11.4 and removes the earlier
+maintenance-page route that could run an unsafe historical uninstaller. It
+updates managed files in place; preserve this policy when upgrading Tauri.

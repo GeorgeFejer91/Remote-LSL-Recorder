@@ -38,6 +38,22 @@ try {
     if (Get-CimInstance Win32_Process -Filter "Name='LabRecorderCLI.exe'") {
         throw 'Unexpected recording process before recording was requested.'
     }
+    $installedHash = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash
+    $blockedInstall = Start-Process -FilePath $installerPath -ArgumentList '/S', '/NS' -WindowStyle Hidden -PassThru -Wait
+    if ($blockedInstall.ExitCode -eq 0) { throw 'Installer accepted a running Recorder.' }
+    $app.Refresh()
+    if ($app.HasExited) { throw 'Maintenance installation terminated the running Recorder.' }
+    $blockedPassive = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -WindowStyle Hidden -PassThru -Wait
+    if ($blockedPassive.ExitCode -eq 0) { throw 'Passive installer accepted a running Recorder.' }
+    $app.Refresh()
+    if ($app.HasExited) { throw 'Passive installation terminated the running Recorder.' }
+    $blockedUninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
+    if ($blockedUninstall.ExitCode -eq 0) { throw 'Uninstaller accepted a running Recorder.' }
+    $app.Refresh()
+    if ($app.HasExited) { throw 'Maintenance uninstallation terminated the running Recorder.' }
+    if ((Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash -ne $installedHash) {
+        throw 'Refused maintenance changed the installed executable.'
+    }
     $app.CloseMainWindow() | Out-Null
     if (-not $app.WaitForExit(15000)) { throw 'Installed app did not close cleanly.' }
     if ($app.ExitCode -ne 0) { throw "Installed app exit code: $($app.ExitCode)" }
@@ -45,11 +61,16 @@ try {
     $app.Refresh()
     if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
 }
+$legacyMarker = Join-Path $env:RUNNER_TEMP 'unexpected-legacy-uninstaller.txt'
+Set-ItemProperty -LiteralPath $key -Name UninstallString -Value ('cmd.exe /c echo legacy-uninstaller > "{0}"' -f $legacyMarker)
+$reinstall = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -WindowStyle Hidden -PassThru -Wait
+if ($reinstall.ExitCode -ne 0) { throw "Closed-app reinstall exit code: $($reinstall.ExitCode)" }
+if (Test-Path -LiteralPath $legacyMarker) { throw 'Installer executed a previous uninstaller.' }
 $uninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
 if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exit code: $($uninstall.ExitCode)" }
 for ($attempt = 0; $attempt -lt 15 -and (Test-Path -LiteralPath $executable); $attempt++) { Start-Sleep -Seconds 1 }
 if ((Test-Path -LiteralPath $key) -or (Test-Path -LiteralPath $executable)) {
     throw 'Uninstall left the product registration or executable behind.'
 }
-Write-Output "VERIFIED: exact SHA256 installer, registration/resources, native window, idle recording, clean exit, silent uninstall."
+Write-Output "VERIFIED: exact SHA256 installer, registration/resources, native window, idle recording, running-app install/uninstall refusal without termination, clean exit, silent uninstall."
 Write-Output 'NOT TESTED: physical phone, rendered controls, hardware streams, upgrade/downgrade, offline WebView2 installation on a runtime-free host.'

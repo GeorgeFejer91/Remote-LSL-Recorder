@@ -36,6 +36,10 @@
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
     },
     "windows": {
+      "nsis": {
+        "template": "installer.nsi",
+        "installerHooks": "installer-hooks.nsh"
+      },
       "webviewInstallMode": {
         "type": "offlineInstaller",
         "silent": true
