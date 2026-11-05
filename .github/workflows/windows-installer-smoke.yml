@@ -1,0 +1,36 @@
+name: Windows installer smoke
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft or published release tag
+        type: string
+        required: true
+      sha256:
+        description: Exact installer SHA256 to test
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  install-launch-uninstall:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Download exact release installer
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern '*_x64-setup.exe' --dir installer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install, launch, close and uninstall
+        shell: pwsh
+        env:
+          INSTALLER_SHA256: ${{ inputs.sha256 }}
+        run: |
+          $installers = @(Get-ChildItem -LiteralPath installer -Filter '*_x64-setup.exe')
+          if ($installers.Count -ne 1) { throw 'Expected one installer.' }
+          ./scripts/smoke-windows-installer.ps1 -Installer $installers[0].FullName -Sha256 $env:INSTALLER_SHA256

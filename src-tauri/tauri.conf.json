@@ -31,7 +31,9 @@
     "shortDescription": "View and record LSL streams",
     "longDescription": "Discover, view, and record Lab Streaming Layer streams to XDF with an opt-in browser companion.",
     "resources": {
-      "../vendor/labrecorder-win/*": "labrecorder/"
+      "../vendor/labrecorder-win/*": "labrecorder/",
+      "../LICENSE": "LICENSE",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
     },
     "windows": {
       "webviewInstallMode": {

@@ -101,3 +101,20 @@ companion.
 
 Git and runnable checks are the authority for branch, revision, and behavior.
 Do not turn this section into a second status ledger.
+
+## Active delivery checklist
+
+Independent Windows experimental release (application 0.1.7):
+
+- [ ] Build from a clean committed source with frozen pnpm and Cargo locks;
+  retain source, toolchain, pinned LabRecorder and bundled WebView2 provenance.
+- [ ] Pass source gates and synthetic numeric/marker XDF inspection; test the
+  exact installer on a disposable Windows host before public promotion.
+- [ ] Publish the standalone prerelease with installer, checksums, provenance
+  and licensing notices. Keep remote phone/hardware qualification open until
+  those physical checks have direct evidence.
+
+Release installation remains current-user and independent of any joint
+installer. `scripts/smoke-windows-installer.ps1` deliberately refuses ordinary
+desktop hosts; live-PC installation is coordinated separately. No recorder or
+remote defaults change for the combined installer.

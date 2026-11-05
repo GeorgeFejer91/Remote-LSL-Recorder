@@ -112,6 +112,26 @@ The installer is written to `src-tauri/target/release/bundle/nsis/`. It bundles
 the LabRecorder CLI and an offline WebView2 installer. The phone controller
 needs Internet access for VDO.Ninja signaling even when the devices share Wi-Fi.
 
+Experimental Windows downloads are published in [GitHub Releases](https://github.com/GeorgeFejer91/Remote-LSL-Recorder/releases).
+The application version remains 0.1.7; an `experimental` release tag identifies
+the qualification channel. Each release includes SHA256 checksums, source and
+dependency provenance, and licensing notices. Experimental installers are unsigned.
+
+NSIS installs for the current user, normally into
+`%LOCALAPPDATA%\Remote LSL Recorder`. Use `/S` for silent installation, `/P`
+for passive installation, and `/NS` to suppress shortcuts. An optional
+`/D=<absolute directory>` must be the last argument. Without `/R`, silent
+installation does not launch the application. The current location is the
+`InstallLocation` value under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Remote LSL Recorder`;
+remove its surrounding quotes and append the `MainBinaryName` value. The
+uninstaller is `uninstall.exe` in that directory and accepts `/S`.
+
+The manually dispatched **Windows installer smoke** workflow checks an exact
+release installer hash on a disposable Windows host: installed resources and
+registration, native window creation, idle recording, clean exit, and silent
+uninstall. This does not qualify physical phone control or hardware recording.
+
 AI-agent project context starts at [`for-ai/README.md`](./for-ai/README.md).
 
 Repository: https://github.com/GeorgeFejer91/Remote-LSL-Recorder
