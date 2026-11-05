@@ -14,6 +14,10 @@ permissions:
   contents: read
 jobs:
   install-launch-uninstall:
+    # GitHub requires write access to see draft releases. This manually
+    # dispatched job reads the draft; it never publishes or mutates releases.
+    permissions:
+      contents: write
     runs-on: windows-2025
     timeout-minutes: 15
     steps:
