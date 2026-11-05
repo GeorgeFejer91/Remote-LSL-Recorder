@@ -21,6 +21,7 @@ $entry = Get-ItemProperty -LiteralPath $key
 if ($entry.DisplayVersion -ne '0.1.7') { throw 'Unexpected installed version.' }
 $location = $entry.InstallLocation.Trim('"')
 $executable = Join-Path $location $entry.MainBinaryName
+$uninstallerCopy = Join-Path $env:RUNNER_TEMP 'recorder-uninstall-smoke.exe'
 foreach ($relative in @('remote-lsl-recorder.exe', 'labrecorder\LabRecorderCLI.exe', 'labrecorder\lsl.dll', 'labrecorder\LICENSE', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'uninstall.exe')) {
     if (-not (Test-Path -LiteralPath (Join-Path $location $relative) -PathType Leaf)) {
         throw "Installed resource missing: $relative"
@@ -59,7 +60,10 @@ try {
     $app.Refresh()
     if ($app.HasExited) { throw 'Passive installation terminated the running Recorder.' }
     Write-Output 'Checking running-app uninstallation refusal.'
-    $blockedUninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru
+    # A temporary copy plus final _?= waits for the actual NSIS worker,
+    # rather than the installed uninstaller's copy/relaunch stub.
+    Copy-Item -LiteralPath (Join-Path $location 'uninstall.exe') -Destination $uninstallerCopy -Force
+    $blockedUninstall = Start-Process -FilePath $uninstallerCopy -ArgumentList '/S', "_?=$location" -WindowStyle Hidden -PassThru
     if (-not $blockedUninstall.WaitForExit(30000)) { throw 'Uninstall refusal did not exit within thirty seconds.' }
     if ($blockedUninstall.ExitCode -eq 0) { throw 'Uninstaller accepted a running Recorder.' }
     $app.Refresh()
@@ -82,7 +86,8 @@ if (-not $reinstall.WaitForExit(60000)) { throw 'Closed-app reinstall did not ex
 if ($reinstall.ExitCode -ne 0) { throw "Closed-app reinstall exit code: $($reinstall.ExitCode)" }
 if (Test-Path -LiteralPath $legacyMarker) { throw 'Installer executed a previous uninstaller.' }
 Write-Output 'Checking final silent uninstallation.'
-$uninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru
+Copy-Item -LiteralPath (Join-Path $location 'uninstall.exe') -Destination $uninstallerCopy -Force
+$uninstall = Start-Process -FilePath $uninstallerCopy -ArgumentList '/S', "_?=$location" -WindowStyle Hidden -PassThru
 if (-not $uninstall.WaitForExit(60000)) { throw 'Final uninstaller did not exit within one minute.' }
 if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exit code: $($uninstall.ExitCode)" }
 for ($attempt = 0; $attempt -lt 15 -and (Test-Path -LiteralPath $executable); $attempt++) { Start-Sleep -Seconds 1 }
