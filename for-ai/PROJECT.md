@@ -106,22 +106,49 @@ Do not turn this section into a second status ledger.
 
 Independent Windows experimental release (application 0.1.7):
 
-- [ ] Build from a clean committed source with frozen pnpm and Cargo locks;
+- [x] Build from a clean committed source with frozen pnpm and Cargo locks;
   retain source, toolchain, pinned LabRecorder and bundled WebView2 provenance.
-- [ ] Pass source gates and synthetic numeric/marker XDF inspection; test the
+- [x] Pass source gates and synthetic numeric/marker XDF inspection; test the
   exact installer on a disposable Windows host before public promotion.
-- [ ] Publish the standalone prerelease with installer, checksums, provenance
+- [x] Publish the standalone prerelease with installer, checksums, provenance
   and licensing notices. Keep remote phone/hardware qualification open until
   those physical checks have direct evidence.
+
+The published [v0.1.7-experimental.1 release](https://github.com/GeorgeFejer91/Remote-LSL-Recorder/releases/tag/v0.1.7-experimental.1)
+is built from clean source `312a59f69614d3fb0a7849c0e559c19740f0df63`,
+which is also the remote tag target. Its installer is 220,347,176 bytes with
+SHA256 `8435bae7b06257e21ee1aeb5456615d7fda1a63bf47f2ddebec85108b24458ae`.
+Release receipts retain component hashes, frozen dependencies and evidence.
+Anonymous download returned HTTP 200 with the matching content length.
+
+Source gates passed 21 JavaScript and 11 Rust tests, formatting and clippy.
+Independent pyxdf inspection retained 451 synthetic numeric samples over
+4.5003 seconds and two markers; the app-authority XDF retained all three input
+markers. The [exact-installer Windows smoke](https://github.com/GeorgeFejer91/Remote-LSL-Recorder/actions/runs/42086293188)
+passed install/resources/registration, native window creation, idle recording,
+silent/passive refusal without terminating Recorder, direct uninstaller-worker
+refusal, clean shutdown, closed-app reinstall without executing a sentinel
+historical uninstaller, and final removal. Its workflow source is
+`8c299b5406e00202eda3083419617cda166b5310`; later workflow-only fixes did not
+rebuild or replace the qualified installer.
+
+Standalone packaging is complete and published; the consuming suite owns live
+joint installation. The overall product qualification remains open. Next:
+observe a physical phone command reach Rust and its revision return; hardware,
+rendered-control/accessibility, MSRV, historical upgrade/downgrade and
+runtime-free offline-deployment claims still need their own evidence.
 
 Release installation remains current-user and independent of any joint
 installer. `scripts/smoke-windows-installer.ps1` deliberately refuses ordinary
 desktop hosts; live-PC installation is coordinated separately. No recorder or
 remote defaults change for the combined installer.
 The NSIS hook overrides Tauri's shared running-process macro for installation
-and uninstallation: maintenance aborts with a nonzero result while Recorder is
+and uninstallation: the maintenance worker aborts with a nonzero result while Recorder is
 running, preserving the process and any active recording. Never restore the
 upstream silent force-termination path for this recording application.
 The maintained template is pinned to Tauri CLI 2.11.4 and removes the earlier
 maintenance-page route that could run an unsafe historical uninstaller. It
 updates managed files in place; preserve this policy when upgrading Tauri.
+The smoke dismisses only its owned passive NSIS error page, with bounded waits.
+For synchronous uninstaller evidence it runs a temporary copy with the final,
+unquoted `_?=<install directory>` argument to avoid the NSIS launcher handoff.
