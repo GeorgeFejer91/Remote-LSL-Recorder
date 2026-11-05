@@ -12,7 +12,9 @@ $installerPath = (Resolve-Path -LiteralPath $Installer).Path
 if ((Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash -ne $Sha256) {
     throw 'Installer SHA256 mismatch.'
 }
-$install = Start-Process -FilePath $installerPath -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
+Write-Output 'Installing the exact verified installer.'
+$install = Start-Process -FilePath $installerPath -ArgumentList '/S' -WindowStyle Hidden -PassThru
+if (-not $install.WaitForExit(180000)) { throw 'Initial installer did not exit within three minutes.' }
 if ($install.ExitCode -ne 0) { throw "Installer exit code: $($install.ExitCode)" }
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Remote LSL Recorder'
 $entry = Get-ItemProperty -LiteralPath $key
@@ -39,15 +41,26 @@ try {
         throw 'Unexpected recording process before recording was requested.'
     }
     $installedHash = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash
-    $blockedInstall = Start-Process -FilePath $installerPath -ArgumentList '/S', '/NS' -WindowStyle Hidden -PassThru -Wait
+    Write-Output 'Checking silent running-app refusal.'
+    $blockedInstall = Start-Process -FilePath $installerPath -ArgumentList '/S', '/NS' -WindowStyle Hidden -PassThru
+    if (-not $blockedInstall.WaitForExit(30000)) { throw 'Silent refusal did not exit within thirty seconds.' }
     if ($blockedInstall.ExitCode -eq 0) { throw 'Installer accepted a running Recorder.' }
     $app.Refresh()
     if ($app.HasExited) { throw 'Maintenance installation terminated the running Recorder.' }
-    $blockedPassive = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -WindowStyle Hidden -PassThru -Wait
-    if ($blockedPassive.ExitCode -eq 0) { throw 'Passive installer accepted a running Recorder.' }
+    Write-Output 'Checking passive running-app refusal and dismissing its owned error page.'
+    $blockedPassive = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -PassThru
+    if (-not $blockedPassive.WaitForExit(5000)) {
+        # Passive NSIS errors leave a Close page. Dismiss only this owned
+        # installer window; the Recorder must remain alive throughout.
+        if (-not $blockedPassive.CloseMainWindow()) { throw 'Could not dismiss the passive installer error page.' }
+        if (-not $blockedPassive.WaitForExit(15000)) { throw 'Passive error-page dismissal did not complete.' }
+    }
+    if ($blockedPassive.ExitCode -ne 2) { throw "Expected passive refusal exit code 2, got $($blockedPassive.ExitCode)." }
     $app.Refresh()
     if ($app.HasExited) { throw 'Passive installation terminated the running Recorder.' }
-    $blockedUninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
+    Write-Output 'Checking running-app uninstallation refusal.'
+    $blockedUninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru
+    if (-not $blockedUninstall.WaitForExit(30000)) { throw 'Uninstall refusal did not exit within thirty seconds.' }
     if ($blockedUninstall.ExitCode -eq 0) { throw 'Uninstaller accepted a running Recorder.' }
     $app.Refresh()
     if ($app.HasExited) { throw 'Maintenance uninstallation terminated the running Recorder.' }
@@ -63,10 +76,14 @@ try {
 }
 $legacyMarker = Join-Path $env:RUNNER_TEMP 'unexpected-legacy-uninstaller.txt'
 Set-ItemProperty -LiteralPath $key -Name UninstallString -Value ('cmd.exe /c echo legacy-uninstaller > "{0}"' -f $legacyMarker)
-$reinstall = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -WindowStyle Hidden -PassThru -Wait
+Write-Output 'Checking successful closed-app passive reinstall without legacy uninstaller execution.'
+$reinstall = Start-Process -FilePath $installerPath -ArgumentList '/P', '/NS' -WindowStyle Hidden -PassThru
+if (-not $reinstall.WaitForExit(60000)) { throw 'Closed-app reinstall did not exit within one minute.' }
 if ($reinstall.ExitCode -ne 0) { throw "Closed-app reinstall exit code: $($reinstall.ExitCode)" }
 if (Test-Path -LiteralPath $legacyMarker) { throw 'Installer executed a previous uninstaller.' }
-$uninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru -Wait
+Write-Output 'Checking final silent uninstallation.'
+$uninstall = Start-Process -FilePath (Join-Path $location 'uninstall.exe') -ArgumentList '/S' -WindowStyle Hidden -PassThru
+if (-not $uninstall.WaitForExit(60000)) { throw 'Final uninstaller did not exit within one minute.' }
 if ($uninstall.ExitCode -ne 0) { throw "Uninstaller exit code: $($uninstall.ExitCode)" }
 for ($attempt = 0; $attempt -lt 15 -and (Test-Path -LiteralPath $executable); $attempt++) { Start-Sleep -Seconds 1 }
 if ((Test-Path -LiteralPath $key) -or (Test-Path -LiteralPath $executable)) {
