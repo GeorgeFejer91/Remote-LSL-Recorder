@@ -24,7 +24,8 @@ foreach ($relative in @('remote-lsl-recorder.exe', 'labrecorder\LabRecorderCLI.e
         throw "Installed resource missing: $relative"
     }
 }
-$app = Start-Process -FilePath $executable -WindowStyle Hidden -PassThru
+# This is the GUI under test on a disposable runner, not a background helper.
+$app = Start-Process -FilePath $executable -PassThru
 try {
     $hasWindow = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
@@ -39,6 +40,7 @@ try {
     }
     $app.CloseMainWindow() | Out-Null
     if (-not $app.WaitForExit(15000)) { throw 'Installed app did not close cleanly.' }
+    if ($app.ExitCode -ne 0) { throw "Installed app exit code: $($app.ExitCode)" }
 } finally {
     $app.Refresh()
     if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
