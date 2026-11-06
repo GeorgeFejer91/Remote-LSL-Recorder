@@ -488,13 +488,12 @@ impl AppState {
         }
         validate_participant(&snapshot.participant_id)?;
         validate_output_directory(&snapshot.output_directory)?;
-        let (child, player) = crate::vlc::launch_paused(&video_path, port)?;
+        let session_id = random_token(18);
+        let (child, player) = crate::vlc::launch_paused(&video_path, port, &session_id)?;
         let expected = [
-            format!("vlc-flubber-{}-affect", child.id()),
-            format!("vlc-flubber-{}-markers", child.id()),
+            format!("vlc-flubber-{}-{session_id}-affect", child.id()),
+            format!("vlc-flubber-{}-{session_id}-markers", child.id()),
         ];
-        let hostname =
-            std::env::var("COMPUTERNAME").map_err(|_| "Local hostname is unavailable.")?;
         let deadline = Instant::now() + Duration::from_secs(15);
         loop {
             if self.shutting_down.load(Ordering::Acquire) {
@@ -502,20 +501,22 @@ impl AppState {
             }
             let discovered = self.refresh_streams()?;
             if expected.iter().all(|source| {
-                discovered.streams.iter().any(|stream| {
-                    &stream.source_id == source && stream.hostname.eq_ignore_ascii_case(&hostname)
-                })
+                discovered
+                    .streams
+                    .iter()
+                    .any(|stream| &stream.source_id == source)
             }) {
-                for stream in discovered.streams.iter().filter(|stream| {
-                    expected.contains(&stream.source_id)
-                        && stream.hostname.eq_ignore_ascii_case(&hostname)
-                }) {
+                for stream in discovered
+                    .streams
+                    .iter()
+                    .filter(|stream| expected.contains(&stream.source_id))
+                {
                     self.select_stream(stream.id.clone(), true)?;
                 }
                 break;
             }
             if Instant::now() >= deadline {
-                return Err("VLC+ affect/marker streams were not discovered. Recording has not started; VLC+ remains paused.".into());
+                return Err("The launched VLC+ session's affect/marker streams were not discovered. Install VLC+0.3.3 or newer. Recording has not started; VLC+ remains paused.".into());
             }
         }
         self.record_and_play_inner(port, Some(player), Some(&expected[0]))

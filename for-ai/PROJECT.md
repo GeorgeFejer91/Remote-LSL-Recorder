@@ -109,7 +109,7 @@ Do not turn this section into a second status ledger.
 - [x] Recover the handoff and preserve recording authority, remote grants and
   existing stream selection semantics.
 - [x] Add local Start VLC+ and record: validate local media, launch paused,
-  verify exact RC listener PID, select the same local host/PID affect and
+  verify exact RC listener PID, select the same per-launch random session/PID affect and
   marker streams plus operator-selected external streams, wait for complete
   matching XDF stream headers, then request and confirm playback. Preserve
   partial XDF and visible errors on failure. Record and play still resumes
@@ -131,6 +131,11 @@ Do not turn this section into a second status ledger.
   The user must handle that dialog manually; no consent may be automated.
 - [x] Publish the static guide at `https://georgefejer91.github.io/Remote-LSL-Recorder/vlc.html`; Pages commit `99f7d0d` is built. Exact four public file hashes, 14 shortcut rows, 320/390/1280/1920 px and no Edge page errors pass.
 - [ ] Build/review/test the exact Recorder0.1.8 installer and coordinate joint packaging with VLC+.
+
+The pinned Windows LSL library reports `unknown` for its hostname. Auto-launch
+uses a fresh random ID passed only to the launched player's environment and
+appended to both PID-based stream IDs. Hostname alone is not a local-host check.
+VLC+0.3.3 is required for this auto-launch path; legacy Record and play remains.
 
 New candidate version is 0.1.8; no new installer/release is claimed yet. The
 native test now exercises the fixed default installed player and cannot name

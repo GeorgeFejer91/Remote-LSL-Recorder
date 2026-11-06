@@ -30,7 +30,7 @@ async function freePort() {
 }
 const rcPort = await freePort();
 const debugPort = await freePort();
-let vlcPid;
+let vlcPid, affectSource, markerSource;
 const recorder = spawn(recorderExe, [], { windowsHide: false, stdio: "ignore",
   env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1` } });
 await writeFile(join(output, "processes.json"), JSON.stringify({ recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
@@ -81,13 +81,20 @@ try {
       throw error;
     });
   const before = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
-  const launched = before.streams.find(stream => stream.selected && /^vlc-flubber-\d+-affect$/.test(stream.sourceId));
+  const launched = before.streams.find(stream => stream.selected && /^vlc-flubber-\d+-[\w-]+-affect$/.test(stream.sourceId));
   assert.ok(launched, "The launched player's affect stream must be automatically selected");
   vlcPid = Number(launched.sourceId.match(/^vlc-flubber-(\d+)-/)[1]);
-  assert.ok(before.streams.some(stream => stream.selected && stream.sourceId === `vlc-flubber-${vlcPid}-markers`));
+  affectSource = launched.sourceId;
+  markerSource = affectSource.replace(/-affect$/, "-markers");
+  assert.ok(before.streams.some(stream => stream.selected && stream.sourceId === markerSource));
+  await page.waitForFunction(async source => {
+    const state = await window.__TAURI__.core.invoke("get_snapshot");
+    return state.markers.some(marker => /_Start$/.test(marker.value)
+      && state.streams.some(stream => stream.id === marker.streamId && stream.sourceId === source));
+  }, markerSource);
   await rc("pause");
   const transportBefore = await rc("get_time\nvolume\nstatus", "status");
-  await writeFile(join(output, "processes.json"), JSON.stringify({ vlcPid, recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
+  await writeFile(join(output, "processes.json"), JSON.stringify({ vlcPid, affectSource, markerSource, recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
   console.log(`READY_FOR_KEYS VLC_PID=${vlcPid} RECORDER_PID=${recorder.pid}`);
   const inputDeadline = Date.now() + 120000;
   while (Date.now() < inputDeadline) {
@@ -97,7 +104,7 @@ try {
   assert.equal(await stat(inputDone).then(() => true, () => false), true, "Native keyboard phase was not completed");
   await delay(1500);
   const after = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
-  const affect = after.streams.find(stream => stream.sourceId === `vlc-flubber-${vlcPid}-affect`);
+  const affect = after.streams.find(stream => stream.sourceId === affectSource);
   assert.ok(affect?.preview.some(sample => sample.values[0] !== 0 && sample.values[1] !== 0), "Both rating axes must change in the real LSL preview");
   assert.ok(after.markers.some(marker => /Start|Resume/.test(marker.value)), "Playback marker missing");
   const transportAfter = await rc("get_time\nvolume\nstatus", "status");
@@ -110,17 +117,17 @@ try {
   await rc("pause");
   await delay(1200);
   await rc("stop");
-  await page.waitForFunction(async pid => {
+  await page.waitForFunction(async source => {
     const state = await window.__TAURI__.core.invoke("get_snapshot");
     return state.markers.some(marker => /_Stop$/.test(marker.value)
-      && state.streams.some(stream => stream.id === marker.streamId && stream.sourceId === `vlc-flubber-${pid}-markers`));
-  }, vlcPid);
+      && state.streams.some(stream => stream.id === marker.streamId && stream.sourceId === source));
+  }, markerSource);
   await page.screenshot({ path: join(output, "native-recording.png") });
   await page.getByRole("button", { name: "Stop recording", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("#record-phase").textContent === "Complete");
   const snapshot = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
   stopped = true;
-  await writeFile(join(output, "receipt.json"), JSON.stringify({ before, after, stopped: snapshot, transportBefore, transportAfter, vlcPid, physicalInput: false }, null, 2));
+  await writeFile(join(output, "receipt.json"), JSON.stringify({ before, after, stopped: snapshot, transportBefore, transportAfter, vlcPid, affectSource, markerSource, physicalInput: false }, null, 2));
   console.log(`XDF_READY ${snapshot.recording.outputFile}`);
   console.log("CLOSE_RECORDER: close the owned Recorder window to finish the native test.");
   await new Promise((done, reject) => {

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 pub struct VlcControl(TcpStream);
 
-pub fn launch_paused(video: &str, port: u16) -> Result<(Child, VlcControl), String> {
+pub fn launch_paused(video: &str, port: u16, session: &str) -> Result<(Child, VlcControl), String> {
     let video = validate_video(video)?;
     if port < 1024 {
         return Err("Use a VLC+ control port between 1024 and 65535.".into());
@@ -26,6 +26,7 @@ pub fn launch_paused(video: &str, port: u16) -> Result<(Child, VlcControl), Stri
             "--start-paused",
         ])
         .arg(video)
+        .env("VLC_FLUBBER_SESSION_ID", session)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
