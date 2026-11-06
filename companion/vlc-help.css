@@ -1,0 +1,10 @@
+body { display: block; }
+.vlc-help { max-width: 58rem; margin: 0 auto; padding: 1rem; min-width: 0; }
+.vlc-help h1, .vlc-help h2 { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.vlc-help p { margin: .8rem 0; }
+.vlc-help h2 { margin-top: 1.5rem; }
+.vlc-help dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: .6rem 1rem; }
+.vlc-help dt { font-weight: 600; overflow-wrap: anywhere; }
+.vlc-help dd { margin: 0; min-width: 0; }
+.vlc-help code, .vlc-help pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .vlc-help dl { grid-template-columns: minmax(0, 1fr); gap: .25rem; } .vlc-help dd { margin-bottom: .6rem; } }

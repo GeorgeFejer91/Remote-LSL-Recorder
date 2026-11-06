@@ -116,9 +116,16 @@ fn stream_id(info: &StreamInfo) -> String {
             info.channel_count(),
             info.rate()
         )
+    } else if vlc_stream(info) {
+        format!("source:{}|host:{}", info.source_id(), info.hostname())
     } else {
         format!("source:{}", info.source_id())
     }
+}
+
+fn vlc_stream(info: &StreamInfo) -> bool {
+    info.source_id().starts_with("vlc-flubber-")
+        && ["VLC_Flubber_Affect", "VLC_Flubber_Markers"].contains(&info.name())
 }
 
 fn stream_record(id: &str, info: &StreamInfo) -> StreamRecord {
@@ -127,6 +134,8 @@ fn stream_record(id: &str, info: &StreamInfo) -> StreamRecord {
         Query::name(info.name())
             .and(Query::stream_type(info.stream_type()))
             .and(Query::property("hostname", info.hostname()))
+    } else if vlc_stream(info) {
+        Query::source_id(info.source_id()).and(Query::property("hostname", info.hostname()))
     } else {
         Query::source_id(info.source_id())
     };
@@ -346,6 +355,23 @@ fn thread_safe_name(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vlc_identity_and_recording_queries_include_the_source_host() {
+        let info = StreamInfo::builder("VLC_Flubber_Affect", "Affect", Format::Float32)
+            .source_id("vlc-flubber-123-affect")
+            .channel_count(2)
+            .build()
+            .unwrap();
+        let id = stream_id(&info);
+        assert!(id.contains("|host:"));
+        assert_eq!(
+            stream_record(&id, &info).query,
+            Query::source_id(info.source_id())
+                .and(Query::property("hostname", info.hostname()))
+                .as_str()
+        );
+    }
 
     #[test]
     fn irregular_numeric_streams_are_signals_and_string_events_are_markers() {

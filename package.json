@@ -1,17 +1,19 @@
 {
   "name": "remote-lsl-recorder",
   "private": true,
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "scripts": {
     "tauri": "tauri",
     "prepare:web": "node scripts/prepare-web.mjs",
     "test:js": "node --test tests/*.test.js",
+    "test:ui": "node scripts/check-record-and-play.mjs && node scripts/check-external-tabs.mjs && node scripts/check-panel-sharing.mjs",
     "check:js": "node scripts/prepare-web.mjs --check && node --check web/app.js && node --check web/remote-target.js && node --check companion/app.js && pnpm test:js",
     "check": "pnpm check:js && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.11.4"
+    "@tauri-apps/cli": "2.11.4",
+    "playwright": "1.64.1"
   },
   "dependencies": {
     "@chenglou/pretext": "0.0.9",

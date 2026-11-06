@@ -16,7 +16,7 @@ use serde_json::json;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::{
@@ -41,6 +41,7 @@ pub struct AppState {
     input_source_id: String,
     input_outlet: Mutex<Option<Outlet>>,
     recorder: Mutex<Option<RecordingProcess>>,
+    recording_transition: Mutex<()>,
     engine_directory: PathBuf,
     workspace_path: Option<PathBuf>,
     workspace_readable: bool,
@@ -79,6 +80,7 @@ impl AppState {
             input_source_id,
             input_outlet: Mutex::new(None),
             recorder: Mutex::new(None),
+            recording_transition: Mutex::new(()),
             engine_directory,
             workspace_path: None,
             workspace_readable: true,
@@ -362,6 +364,17 @@ impl AppState {
     }
 
     pub fn start_recording(&self) -> Result<AppSnapshot, String> {
+        let _transition = self
+            .recording_transition
+            .lock()
+            .map_err(|_| "Recording transition lock failed.")?;
+        self.start_recording_inner()
+    }
+
+    fn start_recording_inner(&self) -> Result<AppSnapshot, String> {
+        if self.shutting_down.load(Ordering::Acquire) {
+            return Err("Recorder is shutting down.".into());
+        }
         let mut recorder = self
             .recorder
             .lock()
@@ -452,7 +465,165 @@ impl AppState {
         Ok(state.snapshot())
     }
 
+    pub fn start_recording_and_play(&self, port: u16) -> Result<AppSnapshot, String> {
+        let _transition = self
+            .recording_transition
+            .lock()
+            .map_err(|_| "Recording transition lock failed.")?;
+        self.record_and_play_inner(port, None, None)
+    }
+
+    pub fn start_vlc_and_record(
+        &self,
+        port: u16,
+        video_path: String,
+    ) -> Result<AppSnapshot, String> {
+        let _transition = self
+            .recording_transition
+            .lock()
+            .map_err(|_| "Recording transition lock failed.")?;
+        let snapshot = self.snapshot()?;
+        if snapshot.recording.phase == "recording" {
+            return Err("Stop the current recording before starting another VLC+ session.".into());
+        }
+        validate_participant(&snapshot.participant_id)?;
+        validate_output_directory(&snapshot.output_directory)?;
+        let session_id = random_token(18);
+        let (child, player) = crate::vlc::launch_paused(&video_path, port, &session_id)?;
+        let expected = [
+            format!("vlc-flubber-{}-{session_id}-affect", child.id()),
+            format!("vlc-flubber-{}-{session_id}-markers", child.id()),
+        ];
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if self.shutting_down.load(Ordering::Acquire) {
+                return Err("Recorder is shutting down; VLC+ remains paused.".into());
+            }
+            let discovered = self.refresh_streams()?;
+            if expected.iter().all(|source| {
+                discovered
+                    .streams
+                    .iter()
+                    .any(|stream| &stream.source_id == source)
+            }) {
+                for stream in discovered
+                    .streams
+                    .iter()
+                    .filter(|stream| expected.contains(&stream.source_id))
+                {
+                    self.select_stream(stream.id.clone(), true)?;
+                }
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err("The launched VLC+ session's affect/marker streams were not discovered. Install VLC+0.3.3 or newer. Recording has not started; VLC+ remains paused.".into());
+            }
+        }
+        self.record_and_play_inner(port, Some(player), Some(&expected[0]))
+    }
+
+    fn record_and_play_inner(
+        &self,
+        port: u16,
+        player: Option<crate::vlc::VlcControl>,
+        source_id: Option<&str>,
+    ) -> Result<AppSnapshot, String> {
+        let selected = self.snapshot()?;
+        let affect = selected
+            .streams
+            .iter()
+            .find(|stream| {
+                stream.selected
+                    && stream.name == "VLC_Flubber_Affect"
+                    && source_id.is_none_or(|source| stream.source_id == source)
+            })
+            .ok_or("Select the VLC+ affect stream before recording and playing.")?;
+        let marker_source = affect
+            .source_id
+            .strip_suffix("-affect")
+            .map(|base| format!("{base}-markers"));
+        if !selected.streams.iter().any(|stream| {
+            stream.selected
+                && stream.name == "VLC_Flubber_Markers"
+                && Some(stream.source_id.as_str()) == marker_source.as_deref()
+        }) {
+            return Err(
+                "Select the same VLC+ player's marker stream before recording and playing.".into(),
+            );
+        }
+        let mut player = match player {
+            Some(player) => player,
+            None => crate::vlc::VlcControl::connect(port)?,
+        };
+        let snapshot = self.start_recording_inner()?;
+        let result = self.wait_for_recording_headers(&snapshot).and_then(|()| {
+            if self.shutting_down.load(Ordering::Acquire) {
+                return Err("Recorder is shutting down; video remains paused.".into());
+            }
+            player.play()
+        });
+        if let Err(error) = result {
+            let finish = self.stop_recording_inner();
+            let path = snapshot
+                .recording
+                .output_file
+                .as_deref()
+                .unwrap_or("unknown file");
+            return Err(match finish {
+                Ok(_) => format!("{error} Recording stopped; partial XDF preserved at {path}."),
+                Err(stop_error) => format!("{error} {stop_error} Partial XDF: {path}."),
+            });
+        }
+        self.snapshot()
+    }
+
+    fn wait_for_recording_headers(&self, snapshot: &AppSnapshot) -> Result<(), String> {
+        let path = snapshot
+            .recording
+            .output_file
+            .as_deref()
+            .ok_or("No XDF output file.")?;
+        let expected = snapshot
+            .streams
+            .iter()
+            .filter(|stream| stream.selected)
+            .map(|stream| crate::xdf_headers::StreamIdentity {
+                name: &stream.name,
+                stream_type: &stream.stream_type,
+                source_id: &stream.source_id,
+                hostname: &stream.hostname,
+            })
+            .collect::<Vec<_>>();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let mut bytes = Vec::new();
+            if let Ok(file) = fs::File::open(path) {
+                std::io::Read::take(file, 4 * 1024 * 1024)
+                    .read_to_end(&mut bytes)
+                    .map_err(|e| e.to_string())?;
+            }
+            if crate::xdf_headers::ready(&bytes, &expected) {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(
+                    "Recording did not receive all selected stream headers; video remains paused."
+                        .into(),
+                );
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+    }
+
     pub fn stop_recording(&self) -> Result<AppSnapshot, String> {
+        let _transition = self
+            .recording_transition
+            .lock()
+            .map_err(|_| "Recording transition lock failed.")?;
+        self.stop_recording_inner()
+    }
+
+    fn stop_recording_inner(&self) -> Result<AppSnapshot, String> {
         let mut recorder = self
             .recorder
             .lock()
@@ -745,8 +916,10 @@ impl AppState {
     }
 
     pub fn shutdown(&self) {
-        if self.is_recording().unwrap_or(false) {
-            let _ = self.stop_recording();
+        if let Ok(_transition) = self.recording_transition.lock()
+            && self.is_recording().unwrap_or(false)
+        {
+            let _ = self.stop_recording_inner();
         }
         let _ = self.stop_remote();
         if let Ok(mut outlet) = self.input_outlet.lock() {
@@ -1310,6 +1483,18 @@ mod tests {
     }
 
     #[test]
+    fn record_and_play_requires_selected_vlc_ratings_before_starting() {
+        let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
+        assert!(
+            app.start_recording_and_play(42123)
+                .unwrap_err()
+                .contains("affect stream")
+        );
+        assert!(app.recorder.lock().unwrap().is_none());
+        assert_eq!(app.snapshot().unwrap().recording.phase, "idle");
+    }
+
+    #[test]
     fn enabled_input_markers_reach_the_authoritative_timeline() {
         let app = AppState::new(PathBuf::from("C:\\recordings"), PathBuf::new());
         assert!(
@@ -1359,6 +1544,63 @@ mod tests {
         assert_eq!(stopped.recording.phase, "complete");
         assert!(stopped.recording.bytes_written > 0);
         println!("XDF: {}", started.recording.output_file.unwrap());
+    }
+
+    #[test]
+    #[ignore = "requires an owned paused VLC+ player; set VLC_TEST_PID and VLC_TEST_PORT"]
+    fn record_and_play_captures_vlc_ratings() {
+        let pid = std::env::var("VLC_TEST_PID").expect("set VLC_TEST_PID");
+        let port = std::env::var("VLC_TEST_PORT")
+            .expect("set VLC_TEST_PORT")
+            .parse()
+            .unwrap();
+        let output = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
+            "../.for-ai-local/vlc-recording-{}",
+            random_token(6)
+        ));
+        let engine = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../vendor/labrecorder-win");
+        let app = AppState::new(output.clone(), engine);
+        app.configure_session("VLC_UI_TEST".into(), output.display().to_string())
+            .unwrap();
+        app.select_all_streams(false).unwrap();
+        let expected = [
+            format!("vlc-flubber-{pid}-affect"),
+            format!("vlc-flubber-{pid}-markers"),
+        ];
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            let snapshot = app.refresh_streams().unwrap();
+            if expected.iter().all(|id| {
+                snapshot
+                    .streams
+                    .iter()
+                    .any(|stream| &stream.source_id == id)
+            }) {
+                for id in &expected {
+                    let stream = snapshot
+                        .streams
+                        .iter()
+                        .find(|stream| &stream.source_id == id)
+                        .unwrap();
+                    app.select_stream(stream.id.clone(), true).unwrap();
+                }
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "VLC+ outlets were not discovered"
+            );
+            thread::sleep(Duration::from_millis(100));
+        }
+        let started = app.start_recording_and_play(port).unwrap();
+        println!(
+            "RECORDING VLC+ {pid}; XDF: {}",
+            started.recording.output_file.unwrap()
+        );
+        thread::sleep(Duration::from_secs(20));
+        let stopped = app.stop_recording().unwrap();
+        assert_eq!(stopped.recording.phase, "complete");
+        assert!(stopped.recording.bytes_written > 0);
     }
 
     #[test]
