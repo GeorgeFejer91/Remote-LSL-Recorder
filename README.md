@@ -29,6 +29,33 @@ marker stream named `Recorder input` and shows the events in the marker table.
 The recorder includes that stream in XDF, including when a toggle is enabled
 after recording starts. Input in other applications is outside this capture.
 
+## Record and play VLC+
+
+With VLC+ installed, open a local video paused with its loopback control enabled:
+
+The helper selects English RC responses, which this local integration expects.
+
+```powershell
+./scripts/start-vlc-session.ps1 -VideoPath 'C:\path\to\dictator-3-study.mp4'
+```
+
+In Recorder, apply the participant and recording folder, then select that
+player's `VLC_Flubber_Affect` and `VLC_Flubber_Markers` streams. Hover a stream
+to check its process-specific source ID. **VLC+ setup** holds the matching
+control port (42123 by default). **Record and play VLC+** checks that a video
+is loaded and paused, starts XDF recording, waits for the selected stream
+headers, and asks VLC+ to play. It confirms VLC's playing state. These are
+ordered operations, not a claim of simultaneous hardware/display onset.
+
+Errors remain visible. If playback fails after recording starts, Recorder
+finishes the partial XDF and retains its path. **Stop recording** finishes XDF
+without changing VLC playback. The button controls only the explicitly chosen
+loopback RC endpoint and does not enable phone access. Keep the port local and
+choose the same player's streams; RC itself does not authenticate other local
+programs. Runtime qualification uses `scripts/check-native-vlc-recording.mjs`;
+`scripts/check-record-and-play.mjs` tests rendered controls with mocked native
+IPC and does not establish real recording.
+
 ## Phone pairing
 
 1. On the computer, open **Phone remote** and select **Start phone access**.

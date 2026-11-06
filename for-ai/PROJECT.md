@@ -104,6 +104,39 @@ Do not turn this section into a second status ledger.
 
 ## Active delivery checklist
 
+2026-11-06 local VLC+ integration (`codex/record-and-play`):
+
+- [x] Install the hash-verified safe 0.1.7 release on this PC.
+- [x] Add a local-only Record and play control with explicit VLC port, selected
+  affect/marker streams, record-before-play ordering and partial-XDF retention.
+- [x] Pass mocked-IPC rendered interaction/reflow/large-text checks and native
+  control regression tests. Real quiet-RC testing caught and corrected absent
+  greetings and VLC 3's input-exists `is_playing` semantics; use playlist status.
+- [x] Run the real input-marker Recorder test and independently parse its XDF.
+- [ ] Qualify the actual native WebView button with the installed VLC+ clip,
+  changing both affect axes, playback markers and independent XDF inspection.
+- [x] Build/install the updated candidate and retain source/artifact evidence;
+  publication and physical input/device claims remain separate.
+
+Local evidence: `pnpm check` passed 21 JavaScript and 14 Rust tests (three
+explicit ignored native tests), formatting and clippy; rendered mocked-IPC
+record/play checks passed including large text and narrow widths. The real
+input-marker test passed and its XDF was parsed independently. Candidate NSIS
+built and installed; `.for-ai-local/installed-candidate-integrity.json` verifies
+that its binary differs from the release build only by Tauri's exact single
+UNK-to-NSS bundle marker. Candidate retains application version 0.1.7; it has
+not been published. Its installer is under `src-tauri/target/release/bundle/nsis/`.
+
+Native WebView recording reached Recording/Ready and resumed the real paused
+Great Dictator clip. `.for-ai-local/native-vlc/xdf-inspection.json` documents
+3,706 affect samples and a Start marker in the saved XDF. Both axes remained
+zero because Windows Security blocked the planned keyboard phase. Therefore
+the changing-rating qualification above remains unchecked. Ask the user to
+dismiss the firewall prompt manually, then rerun
+`scripts/check-native-vlc-recording.mjs` with installed executable overrides.
+Do not write `input-done` until actual keyboard tests have run. The script
+backs up workspace settings, stops recordings on failure, and retains XDF.
+
 Independent Windows experimental release (application 0.1.7):
 
 - [x] Build from a clean committed source with frozen pnpm and Cargo locks;

@@ -17,6 +17,7 @@
       <p id="system-status" role="status">Starting…</p>
     </div>
     <div class="toolbar">
+      <button id="vlc-setup" type="button" class="secondary" data-fit-text="action">VLC+ setup</button>
       <button id="remote-open" type="button" class="secondary" data-fit-text="action">Phone remote</button>
     </div>
   </header>
@@ -33,6 +34,7 @@
         <div class="record-actions">
           <button id="record-start" type="button" class="primary" data-fit-text="action">Start recording</button>
           <button id="record-stop" type="button" class="danger" data-fit-text="action" disabled>Stop recording</button>
+          <button id="record-play" type="button" class="secondary" data-fit-text="action">Record and play VLC+</button>
         </div>
         <div class="record-state" role="status">
           <span id="record-indicator" aria-hidden="true"></span>
@@ -99,6 +101,15 @@
   </main>
   <div id="external-panels" class="external-panels" hidden></div>
 
+  <dialog id="vlc-dialog" aria-labelledby="vlc-heading">
+    <form method="dialog" class="dialog-title">
+      <h2 id="vlc-heading" data-fit-text="heading">VLC+ setup</h2>
+      <button type="submit" class="icon-button" aria-label="Close VLC+ setup">×</button>
+    </form>
+    <label for="vlc-port">VLC+ control port</label>
+    <input id="vlc-port" type="number" min="1024" max="65535" value="42123" step="1" aria-describedby="vlc-help">
+    <p id="vlc-help">Load and pause the video in VLC+ with local RC enabled. Select its affect and marker streams. Recording starts before playback. Stop recording finishes the XDF; VLC+ playback remains under its own controls.</p>
+  </dialog>
   <dialog id="remote-dialog">
     <form method="dialog" class="dialog-title">
       <h2 data-fit-text="heading">Phone remote</h2>

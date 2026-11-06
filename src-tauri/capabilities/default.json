@@ -15,6 +15,7 @@
     "allow-set-input-markers",
     "allow-emit-input-marker",
     "allow-start-recording",
+    "allow-start-recording-and-play",
     "allow-stop-recording",
     "allow-start-remote",
     "allow-stop-remote",

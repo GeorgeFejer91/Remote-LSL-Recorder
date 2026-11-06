@@ -11,6 +11,7 @@ fn main() {
             "set_input_markers",
             "emit_input_marker",
             "start_recording",
+            "start_recording_and_play",
             "stop_recording",
             "start_remote",
             "stop_remote",
