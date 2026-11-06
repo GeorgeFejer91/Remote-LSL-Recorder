@@ -267,6 +267,12 @@
           "markdownDescription": "Enables the start_remote command without any pre-configured scope."
         },
         {
+          "description": "Enables the start_vlc_and_record command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-vlc-and-record",
+          "markdownDescription": "Enables the start_vlc_and_record command without any pre-configured scope."
+        },
+        {
           "description": "Enables the stop_recording command without any pre-configured scope.",
           "type": "string",
           "const": "allow-stop-recording",
@@ -367,6 +373,12 @@
           "type": "string",
           "const": "deny-start-remote",
           "markdownDescription": "Denies the start_remote command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_vlc_and_record command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-vlc-and-record",
+          "markdownDescription": "Denies the start_vlc_and_record command without any pre-configured scope."
         },
         {
           "description": "Denies the stop_recording command without any pre-configured scope.",

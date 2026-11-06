@@ -18,6 +18,7 @@ const files = [
   ]),
   [resolve(font, "LICENSE"), "vendor/fonts/LICENSE"],
   [resolve(root, "web/text-fit.js"), "text-fit.js"],
+  [resolve(root, "web/vlc-hotkeys.js"), "vlc-hotkeys.js"],
   [resolve(root, "web/external-tabs.js"), "external-tabs.js"],
   [resolve(root, "web/external-tabs.css"), "external-tabs.css"],
   [resolve(root, "web/external-page-connector.js"), "external-page-connector.js"],
@@ -27,7 +28,7 @@ const files = [
 ];
 
 for (const [source, relative] of files) {
-  for (const surface of ["text-fit.js", "external-tabs.js", "external-tabs.css", "external-page-connector.js", "panel-link.js", "vendor/qrcode/LICENSE"].includes(relative) ? ["companion"] : ["web", "companion"]) {
+  for (const surface of ["text-fit.js", "vlc-hotkeys.js", "external-tabs.js", "external-tabs.css", "external-page-connector.js", "panel-link.js", "vendor/qrcode/LICENSE"].includes(relative) ? ["companion"] : ["web", "companion"]) {
     const destination = resolve(root, surface, relative);
     if (check) {
       const [expected, actual] = await Promise.all([readFile(source), readFile(destination)]);

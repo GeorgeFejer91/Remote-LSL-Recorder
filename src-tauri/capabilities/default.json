@@ -16,6 +16,7 @@
     "allow-emit-input-marker",
     "allow-start-recording",
     "allow-start-recording-and-play",
+    "allow-start-vlc-and-record",
     "allow-stop-recording",
     "allow-start-remote",
     "allow-stop-remote",

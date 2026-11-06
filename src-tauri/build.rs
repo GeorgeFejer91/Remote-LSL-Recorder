@@ -12,6 +12,7 @@ fn main() {
             "emit_input_marker",
             "start_recording",
             "start_recording_and_play",
+            "start_vlc_and_record",
             "stop_recording",
             "start_remote",
             "stop_remote",

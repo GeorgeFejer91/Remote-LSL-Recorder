@@ -13,7 +13,7 @@ const output = resolve(root, ".for-ai-local/native-vlc");
 await mkdir(output, { recursive: true });
 const inputDone = join(output, "input-done");
 await unlink(inputDone).catch(error => { if (error.code !== "ENOENT") throw error; });
-const vlcExe = process.env.VLC_TEST_EXE || join(process.env.LOCALAPPDATA, "Programs/VLCPlus/vlc.exe");
+const vlcExe = join(process.env.LOCALAPPDATA, "Programs/VLCPlus/vlc.exe");
 const video = resolve(process.env.VLC_TEST_MEDIA || "../vlc-plus/examples/media/dictator-3-study.mp4");
 const recorderExe = process.env.RECORDER_TEST_EXE || resolve(root, "src-tauri/target/release/remote-lsl-recorder.exe");
 for (const file of [vlcExe, video, recorderExe]) assert.equal((await stat(file)).isFile(), true);
@@ -30,12 +30,23 @@ async function freePort() {
 }
 const rcPort = await freePort();
 const debugPort = await freePort();
-const vlc = spawn(vlcExe, ["--no-one-instance", "--language=en", "--ignore-config", "--no-qt-privacy-ask", "--no-qt-error-dialogs",
-  "--extraintf=rc", `--rc-host=127.0.0.1:${rcPort}`, "--rc-quiet", "--start-paused", "--flubber-input=arrows", video],
-  { windowsHide: false, stdio: "ignore" });
+let vlcPid;
 const recorder = spawn(recorderExe, [], { windowsHide: false, stdio: "ignore",
   env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debugPort} --remote-debugging-address=127.0.0.1` } });
-await writeFile(join(output, "processes.json"), JSON.stringify({ vlcPid: vlc.pid, recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
+await writeFile(join(output, "processes.json"), JSON.stringify({ recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
+async function rc(command, acknowledgement = command) {
+  return new Promise((done, reject) => {
+    const socket = createConnection({ host: "127.0.0.1", port: rcPort });
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error(`RC timeout: ${command}`)); }, 5000);
+    let response = "";
+    socket.on("error", error => { clearTimeout(timer); reject(error); });
+    socket.on("connect", () => socket.write(command + "\n"));
+    socket.on("data", chunk => {
+      response += chunk.toString();
+      if (response.includes(`${acknowledgement}: returned 0 `)) { clearTimeout(timer); socket.destroy(); done(response); }
+    });
+  });
+}
 let browser;
 let stopped = false;
 try {
@@ -58,14 +69,11 @@ try {
   await page.getByLabel("Recording folder", { exact: true }).fill(output);
   await page.getByRole("button", { name: "Apply session", exact: true }).click();
   await page.getByRole("checkbox", { name: "Record all available streams", exact: true }).uncheck();
-  for (const suffix of ["affect", "markers"]) {
-    const row = page.locator(`.stream-row[title*="vlc-flubber-${vlc.pid}-${suffix}"] input`);
-    await row.check();
-  }
   await page.getByRole("button", { name: "VLC+ setup", exact: true }).click();
   await page.getByLabel("VLC+ control port").fill(String(rcPort));
+  await page.getByLabel("Video path for Start VLC+ and record", { exact: true }).fill(video);
   await page.getByRole("button", { name: "Close VLC+ setup" }).click();
-  await page.getByRole("button", { name: "Record and play VLC+", exact: true }).click();
+  await page.getByRole("button", { name: "Start VLC+ and record", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("#record-phase").textContent === "Recording"
     && document.querySelector("#system-status").textContent === "Ready").catch(async error => {
       console.error(JSON.stringify({ status: await page.locator("#system-status").textContent(),
@@ -73,7 +81,14 @@ try {
       throw error;
     });
   const before = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
-  console.log(`READY_FOR_KEYS VLC_PID=${vlc.pid} RECORDER_PID=${recorder.pid}`);
+  const launched = before.streams.find(stream => stream.selected && /^vlc-flubber-\d+-affect$/.test(stream.sourceId));
+  assert.ok(launched, "The launched player's affect stream must be automatically selected");
+  vlcPid = Number(launched.sourceId.match(/^vlc-flubber-(\d+)-/)[1]);
+  assert.ok(before.streams.some(stream => stream.selected && stream.sourceId === `vlc-flubber-${vlcPid}-markers`));
+  await rc("pause");
+  const transportBefore = await rc("get_time\nvolume\nstatus", "status");
+  await writeFile(join(output, "processes.json"), JSON.stringify({ vlcPid, recorderPid: recorder.pid, rcPort, debugPort, vlcExe, video }, null, 2));
+  console.log(`READY_FOR_KEYS VLC_PID=${vlcPid} RECORDER_PID=${recorder.pid}`);
   const inputDeadline = Date.now() + 120000;
   while (Date.now() < inputDeadline) {
     if (await stat(inputDone).then(() => true, () => false)) break;
@@ -82,15 +97,30 @@ try {
   assert.equal(await stat(inputDone).then(() => true, () => false), true, "Native keyboard phase was not completed");
   await delay(1500);
   const after = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
-  const affect = after.streams.find(stream => stream.sourceId === `vlc-flubber-${vlc.pid}-affect`);
+  const affect = after.streams.find(stream => stream.sourceId === `vlc-flubber-${vlcPid}-affect`);
   assert.ok(affect?.preview.some(sample => sample.values[0] !== 0 && sample.values[1] !== 0), "Both rating axes must change in the real LSL preview");
   assert.ok(after.markers.some(marker => /Start|Resume/.test(marker.value)), "Playback marker missing");
+  const transportAfter = await rc("get_time\nvolume\nstatus", "status");
+  const transportValues = text => ({
+    time: text.split(/\r?\n/).map(line => line.replace(/^> /, "").trim()).find(line => /^\d+$/.test(line)),
+    volume: text.match(/audio volume: (\d+)/)?.[1],
+  });
+  assert.deepEqual(transportValues(transportAfter), transportValues(transportBefore), "Affect arrows must not change paused VLC time or volume");
+  assert.ok(transportValues(transportBefore).time !== undefined && transportValues(transportBefore).volume !== undefined, "Transport assertions require actual time and volume values");
+  await rc("pause");
+  await delay(1200);
+  await rc("stop");
+  await page.waitForFunction(async pid => {
+    const state = await window.__TAURI__.core.invoke("get_snapshot");
+    return state.markers.some(marker => /_Stop$/.test(marker.value)
+      && state.streams.some(stream => stream.id === marker.streamId && stream.sourceId === `vlc-flubber-${pid}-markers`));
+  }, vlcPid);
   await page.screenshot({ path: join(output, "native-recording.png") });
   await page.getByRole("button", { name: "Stop recording", exact: true }).click();
   await page.waitForFunction(() => document.querySelector("#record-phase").textContent === "Complete");
   const snapshot = await page.evaluate(() => window.__TAURI__.core.invoke("get_snapshot"));
   stopped = true;
-  await writeFile(join(output, "receipt.json"), JSON.stringify({ before, after, stopped: snapshot, physicalInput: false }, null, 2));
+  await writeFile(join(output, "receipt.json"), JSON.stringify({ before, after, stopped: snapshot, transportBefore, transportAfter, vlcPid, physicalInput: false }, null, 2));
   console.log(`XDF_READY ${snapshot.recording.outputFile}`);
   console.log("CLOSE_RECORDER: close the owned Recorder window to finish the native test.");
   await new Promise((done, reject) => {

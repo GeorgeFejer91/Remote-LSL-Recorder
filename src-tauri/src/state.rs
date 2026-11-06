@@ -470,11 +470,72 @@ impl AppState {
             .recording_transition
             .lock()
             .map_err(|_| "Recording transition lock failed.")?;
+        self.record_and_play_inner(port, None, None)
+    }
+
+    pub fn start_vlc_and_record(
+        &self,
+        port: u16,
+        video_path: String,
+    ) -> Result<AppSnapshot, String> {
+        let _transition = self
+            .recording_transition
+            .lock()
+            .map_err(|_| "Recording transition lock failed.")?;
+        let snapshot = self.snapshot()?;
+        if snapshot.recording.phase == "recording" {
+            return Err("Stop the current recording before starting another VLC+ session.".into());
+        }
+        validate_participant(&snapshot.participant_id)?;
+        validate_output_directory(&snapshot.output_directory)?;
+        let (child, player) = crate::vlc::launch_paused(&video_path, port)?;
+        let expected = [
+            format!("vlc-flubber-{}-affect", child.id()),
+            format!("vlc-flubber-{}-markers", child.id()),
+        ];
+        let hostname =
+            std::env::var("COMPUTERNAME").map_err(|_| "Local hostname is unavailable.")?;
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if self.shutting_down.load(Ordering::Acquire) {
+                return Err("Recorder is shutting down; VLC+ remains paused.".into());
+            }
+            let discovered = self.refresh_streams()?;
+            if expected.iter().all(|source| {
+                discovered.streams.iter().any(|stream| {
+                    &stream.source_id == source && stream.hostname.eq_ignore_ascii_case(&hostname)
+                })
+            }) {
+                for stream in discovered.streams.iter().filter(|stream| {
+                    expected.contains(&stream.source_id)
+                        && stream.hostname.eq_ignore_ascii_case(&hostname)
+                }) {
+                    self.select_stream(stream.id.clone(), true)?;
+                }
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err("VLC+ affect/marker streams were not discovered. Recording has not started; VLC+ remains paused.".into());
+            }
+        }
+        self.record_and_play_inner(port, Some(player), Some(&expected[0]))
+    }
+
+    fn record_and_play_inner(
+        &self,
+        port: u16,
+        player: Option<crate::vlc::VlcControl>,
+        source_id: Option<&str>,
+    ) -> Result<AppSnapshot, String> {
         let selected = self.snapshot()?;
         let affect = selected
             .streams
             .iter()
-            .find(|stream| stream.selected && stream.name == "VLC_Flubber_Affect")
+            .find(|stream| {
+                stream.selected
+                    && stream.name == "VLC_Flubber_Affect"
+                    && source_id.is_none_or(|source| stream.source_id == source)
+            })
             .ok_or("Select the VLC+ affect stream before recording and playing.")?;
         let marker_source = affect
             .source_id
@@ -489,7 +550,10 @@ impl AppState {
                 "Select the same VLC+ player's marker stream before recording and playing.".into(),
             );
         }
-        let mut player = crate::vlc::VlcControl::connect(port)?;
+        let mut player = match player {
+            Some(player) => player,
+            None => crate::vlc::VlcControl::connect(port)?,
+        };
         let snapshot = self.start_recording_inner()?;
         let result = self.wait_for_recording_headers(&snapshot).and_then(|()| {
             if self.shutting_down.load(Ordering::Acquire) {
@@ -518,11 +582,15 @@ impl AppState {
             .output_file
             .as_deref()
             .ok_or("No XDF output file.")?;
-        let source_ids = snapshot
+        let expected = snapshot
             .streams
             .iter()
             .filter(|stream| stream.selected)
-            .map(|stream| stream.source_id.as_bytes())
+            .map(|stream| crate::xdf_headers::StreamIdentity {
+                name: &stream.name,
+                source_id: &stream.source_id,
+                hostname: &stream.hostname,
+            })
             .collect::<Vec<_>>();
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
@@ -532,11 +600,7 @@ impl AppState {
                     .read_to_end(&mut bytes)
                     .map_err(|e| e.to_string())?;
             }
-            if bytes.starts_with(b"XDF:")
-                && source_ids
-                    .iter()
-                    .all(|id| !id.is_empty() && bytes.windows(id.len()).any(|window| window == *id))
-            {
+            if crate::xdf_headers::ready(&bytes, &expected) {
                 return Ok(());
             }
             if Instant::now() >= deadline {

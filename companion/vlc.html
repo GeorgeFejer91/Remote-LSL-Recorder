@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'none'">
+  <title>VLC+ hotkeys and recording</title>
+  <link rel="stylesheet" href="styles.css?v=0.1.8">
+  <link rel="stylesheet" href="vlc-help.css">
+  <script type="module" src="vlc-help.js"></script>
+</head>
+<body>
+  <main class="vlc-help">
+    <h1 data-fit-text="heading">VLC+ hotkeys and recording</h1>
+    <p>Alt+F is available in VLC+0.3.2. The three-mode cycle and quick settings require VLC+0.3.3; Start VLC+ and record requires Recorder0.1.8. These new versions are currently being qualified.</p>
+    <p>Use these shortcuts with the VLC+ player or video focused. Dialog fields retain normal editing keys. Alt+F makes arrows control valence and arousal, including while paused; press it again to restore VLC's volume and seek shortcuts.</p>
+    <dl id="vlc-hotkeys"></dl>
+    <h2 data-fit-text="heading">Start video and recording together</h2>
+    <p>In the desktop Remote LSL Recorder, open VLC+ setup and enter the local video path and an unused local control port. Apply a participant and recording folder, select any additional streams, then press Start VLC+ and record. The player opens paused; recording subscribes to its affect and marker streams before playback starts.</p>
+    <p>Stop the video before Stop recording to retain its terminal marker. Stop recording closes the XDF and leaves VLC+ under your control. For an already open paused player, select its affect and marker streams and use Record and play VLC+.</p>
+    <h2 data-fit-text="heading">CLI controls</h2>
+    <p>Launch with <code>vlc.exe --extraintf=rc --rc-host=127.0.0.1:42123 --rc-quiet --flubber-input=arrows --flubber-primary=grid</code>. Use the source helper to control that instance:</p>
+    <pre>./vlc-qt/flubberctl.ps1 -Port 42123 -Command 'primary face'
+./vlc-qt/flubberctl.ps1 -Port 42123 -Command 'input arrows'
+./vlc-qt/flubberctl.ps1 -Port 42123 -Command 'visible grid on'</pre>
+    <p><a href="./">Remote LSL Recorder companion</a> · <a href="https://github.com/GeorgeFejer91/vlc-plus">VLC+ source and downloads</a></p>
+  </main>
+</body>
+</html>

@@ -32,6 +32,11 @@
 
 * { box-sizing: border-box; }
 
+.vlc-hotkeys { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: .5rem 1rem; }
+.vlc-hotkeys dt { font-weight: 600; overflow-wrap: anywhere; }
+.vlc-hotkeys dd { margin: 0; min-width: 0; }
+@media (max-width: 480px) { .vlc-hotkeys { grid-template-columns: minmax(0, 1fr); gap: .25rem; } .vlc-hotkeys dd { margin-bottom: .6rem; } }
+
 body {
   margin: 0;
   min-width: 0;

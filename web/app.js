@@ -6,10 +6,12 @@ import {
 import { timeToX } from "./chart-time.js";
 import { channelRanges, displayChannels } from "./chart-scale.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs, readLocalTabs } from "./external-tabs.js?v=0.1.7";
+import { showVlcHotkeys } from "./vlc-hotkeys.js";
+import { mountExternalTabs, readLocalTabs } from "./external-tabs.js?v=0.1.8";
 
 const invoke = (command, args = {}) => window.__TAURI__.core.invoke(command, args);
 const byId = (id) => document.getElementById(id);
+showVlcHotkeys(byId("vlc-hotkeys"));
 const elements = {
   status: byId("system-status"),
   sessionForm: byId("session-form"),
@@ -36,6 +38,8 @@ const elements = {
   recordStop: byId("record-stop"),
   recordPlay: byId("record-play"),
   vlcPort: byId("vlc-port"),
+  vlcVideo: byId("vlc-video"),
+  vlcLaunchRecord: byId("vlc-launch-record"),
   remoteOpen: byId("remote-open"),
   remoteDialog: byId("remote-dialog"),
   remoteIdle: byId("remote-idle"),
@@ -459,6 +463,8 @@ function renderRecording(recording) {
   elements.recordStart.disabled = active || busy;
   elements.recordPlay.disabled = active || busy;
   elements.vlcPort.disabled = active || busy;
+  elements.vlcVideo.disabled = active || busy;
+  elements.vlcLaunchRecord.disabled = active || busy;
   elements.recordStop.disabled = !active || busy;
   const parts = [];
   if (recording.outputFile) parts.push(recording.outputFile);
@@ -512,6 +518,24 @@ elements.recordPlay.addEventListener("click", () => {
 });
 
 byId("vlc-setup").addEventListener("click", () => byId("vlc-dialog").showModal());
+
+elements.vlcLaunchRecord.addEventListener("click", () => {
+  if (!elements.vlcPort.checkValidity() || !elements.vlcVideo.value.trim()) {
+    byId("vlc-dialog").showModal();
+    if (!elements.vlcPort.checkValidity()) elements.vlcPort.reportValidity();
+    else elements.vlcVideo.focus();
+    return;
+  }
+  void run("Opening VLC+, preparing recording, then playing…", async () => {
+    await invoke("configure_session", {
+      participantId: elements.participant.value,
+      outputDirectory: elements.output.value,
+    });
+    return invoke("start_vlc_and_record", {
+      port: Number(elements.vlcPort.value), videoPath: elements.vlcVideo.value.trim(),
+    });
+  }).catch(() => {});
+});
 
 async function setInputMarkers() {
   if (inputMarkersPending) return;

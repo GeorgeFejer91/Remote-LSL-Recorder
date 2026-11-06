@@ -31,6 +31,19 @@ after recording starts. Input in other applications is outside this capture.
 
 ## Record and play VLC+
 
+For one-button launch, open **VLC+ setup**, enter an absolute local video path
+and unused control port, and apply the participant and recording folder.
+Select any additional streams, then choose **Start VLC+ and record**. Recorder
+opens the default current-user VLC+ installation paused, selects that local
+process's affect and marker streams, starts XDF capture of all selected streams,
+and waits for subscriptions before playback. It verifies RC listener ownership.
+An occupied port fails without starting another player. Stop VLC+ before
+**Stop recording** to capture its terminal marker. Launch is local-only and
+does not grant phone access to files or programs.
+
+The setup dialog and [online hotkey guide](https://georgefejer91.github.io/Remote-LSL-Recorder/vlc.html)
+list Alt+F, Alt+G, direct feedback selection, layout and quick settings.
+
 With VLC+ installed, open a local video paused with its loopback control enabled:
 
 The helper selects English RC responses, which this local integration expects.

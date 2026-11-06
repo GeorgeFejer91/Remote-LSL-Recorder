@@ -104,38 +104,40 @@ Do not turn this section into a second status ledger.
 
 ## Active delivery checklist
 
-2026-11-06 local VLC+ integration (`codex/record-and-play`):
+2026-11-06 VLC+ integration (`codex/record-and-play`):
 
-- [x] Install the hash-verified safe 0.1.7 release on this PC.
-- [x] Add a local-only Record and play control with explicit VLC port, selected
-  affect/marker streams, record-before-play ordering and partial-XDF retention.
-- [x] Pass mocked-IPC rendered interaction/reflow/large-text checks and native
-  control regression tests. Real quiet-RC testing caught and corrected absent
-  greetings and VLC 3's input-exists `is_playing` semantics; use playlist status.
-- [x] Run the real input-marker Recorder test and independently parse its XDF.
-- [ ] Qualify the actual native WebView button with the installed VLC+ clip,
-  changing both affect axes, playback markers and independent XDF inspection.
-- [x] Build/install the updated candidate and retain source/artifact evidence;
-  publication and physical input/device claims remain separate.
+- [x] Recover the handoff and preserve recording authority, remote grants and
+  existing stream selection semantics.
+- [x] Add local Start VLC+ and record: validate local media, launch paused,
+  verify exact RC listener PID, select the same local host/PID affect and
+  marker streams plus operator-selected external streams, wait for complete
+  matching XDF stream headers, then request and confirm playback. Preserve
+  partial XDF and visible errors on failure. Record and play still resumes
+  an existing paused player.
+- [x] Add one shared hotkey list to desktop setup and the static companion
+  guide; pass rendered controls at 320/720/1280/1920 px, guide at 320/390/720/
+  1280/1920 px, 200% text and text spacing, plus all external-tab/panel checks.
+- [x] Pass 21 JavaScript tests, 18 release-profile Rust tests (three explicit
+  native/hardware ignores), formatting and clippy. Independent review issues
+  were corrected, including host/PID isolation and honest native receipts.
+- [ ] Complete hosted default-profile source/UI checks. Local `pnpm check`
+  reached linking but FAILED from insufficient C: space; equivalent release
+  tests/clippy passed using the existing release cache. Do not call the
+  default-profile check passed from that result.
+- [ ] Complete actual native WebView launch/record/play, emulated valence and
+  arousal with unchanged paused VLC time/volume, terminal markers and
+  independent XDF/CSV inspection. The new button launched/recorded/played the
+  film, but VLC's first-run privacy dialog blocked keys: FAILED qualification.
+  The user must handle that dialog manually; no consent may be automated.
+- [ ] Publish and verify the static hotkey guide, then build/review/test the
+  exact Recorder0.1.8 installer and coordinate joint packaging with VLC+.
 
-Local evidence: `pnpm check` passed 21 JavaScript and 14 Rust tests (three
-explicit ignored native tests), formatting and clippy; rendered mocked-IPC
-record/play checks passed including large text and narrow widths. The real
-input-marker test passed and its XDF was parsed independently. Candidate NSIS
-built and installed; `.for-ai-local/installed-candidate-integrity.json` verifies
-that its binary differs from the release build only by Tauri's exact single
-UNK-to-NSS bundle marker. Candidate retains application version 0.1.7; it has
-not been published. Its installer is under `src-tauri/target/release/bundle/nsis/`.
-
-Native WebView recording reached Recording/Ready and resumed the real paused
-Great Dictator clip. `.for-ai-local/native-vlc/xdf-inspection.json` documents
-3,706 affect samples and a Start marker in the saved XDF. Both axes remained
-zero because Windows Security blocked the planned keyboard phase. Therefore
-the changing-rating qualification above remains unchecked. Ask the user to
-dismiss the firewall prompt manually, then rerun
-`scripts/check-native-vlc-recording.mjs` with installed executable overrides.
-Do not write `input-done` until actual keyboard tests have run. The script
-backs up workspace settings, stops recordings on failure, and retains XDF.
+New candidate version is 0.1.8; no new installer/release is claimed yet. The
+native test now exercises the fixed default installed player and cannot name
+an unlaunched `VLC_TEST_EXE` override. Synthetic failed recordings are retained
+under ignored `.for-ai-local/`. No participant recording or phone access is
+started by the installer or joint launcher. Existing 0.1.7 release evidence
+below remains scoped to its exact original bytes.
 
 Independent Windows experimental release (application 0.1.7):
 

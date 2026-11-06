@@ -29,7 +29,7 @@ try {
   let phase = "idle";
   await page.exposeFunction("fixtureInvoke", async (command, args) => {
     calls.push({ command, args });
-    if (command === "start_recording_and_play") {
+    if (command === "start_recording_and_play" || command === "start_vlc_and_record") {
       if (fail) throw new Error("VLC+ is not listening on the selected port.");
       phase = "recording";
     }
@@ -42,7 +42,21 @@ try {
   await page.addInitScript(() => { window.__TAURI__ = { core: { invoke: (command, args = {}) => window.fixtureInvoke(command, args) } }; });
   await page.goto(`http://127.0.0.1:${server.address().port}/web/index.html`);
   const start = page.getByRole("button", { name: "Record and play VLC+", exact: true });
+  const launch = page.getByRole("button", { name: "Start VLC+ and record", exact: true });
   await start.waitFor();
+  await launch.click();
+  assert.equal(await page.locator("#vlc-dialog").evaluate(el => el.open), true);
+  assert.equal(calls.some(call => call.command === "start_vlc_and_record"), false);
+  await page.getByLabel("Video path for Start VLC+ and record", { exact: true }).fill("C:\\Videos\\clip with spaces.mp4");
+  assert.match(await page.locator(".vlc-hotkeys").textContent(), /Alt\+F.*Alt\+G/s);
+  await page.getByRole("button", { name: "Close VLC+ setup" }).click();
+  await launch.click();
+  await page.waitForFunction(() => document.querySelector("#record-phase").textContent === "Recording");
+  const launched = calls.find(call => call.command === "start_vlc_and_record");
+  assert.deepEqual(launched.args, { port: 42123, videoPath: "C:\\Videos\\clip with spaces.mp4" });
+  assert.equal(await launch.isDisabled(), true);
+  await page.getByRole("button", { name: "Stop recording", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector("#vlc-launch-record").disabled);
   await page.getByRole("button", { name: "VLC+ setup", exact: true }).click();
   await page.getByLabel("VLC+ control port").fill("42124");
   await page.getByRole("button", { name: "Close VLC+ setup" }).click();
@@ -66,11 +80,34 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => document.fonts.ready);
     assert.equal(await start.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1), true);
+    assert.equal(await launch.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1), true);
+    await page.getByRole("button", { name: "VLC+ setup", exact: true }).click();
+    assert.equal(await page.locator("#vlc-dialog").evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+    await page.getByRole("button", { name: "Close VLC+ setup" }).click();
     await page.screenshot({ path: resolve(output, `recorder-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addStyleTag({ content: "html {font-size:200% !important} #record-play {line-height:1.5 !important;letter-spacing:.12em !important;word-spacing:.16em !important}" });
   assert.equal(await start.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1), true);
   await page.screenshot({ path: resolve(output, "recorder-large-text.png"), fullPage: true });
-  console.log("PASS: record/play control, session ordering, port, active lock, failure recovery and readable label at 320/720/1280/1920 CSS px (mock native IPC).");
+  await page.goto(`http://127.0.0.1:${server.address().port}/companion/vlc.html`);
+  await page.locator("#vlc-hotkeys dt").first().waitFor();
+  assert.equal(await page.locator("#vlc-hotkeys dt").count(), 14);
+  for (const width of [320, 390, 720, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, `Hotkey page overflow at ${width}`);
+    await page.screenshot({ path: resolve(output, `hotkeys-${width}.png`), fullPage: true });
+  }
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+    for (const element of document.querySelectorAll("body *")) {
+      element.style.lineHeight = "1.5";
+      element.style.letterSpacing = ".12em";
+      element.style.wordSpacing = ".16em";
+    }
+  });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+  console.log("PASS: launch/record/play, session ordering, video path/port, active lock, failure recovery, hotkey list and readable labels at 320/720/1280/1920 CSS px (mock native IPC).");
 } finally { await browser.close(); await new Promise(done => server.close(done)); }

@@ -2,8 +2,8 @@ import { BRSPConnection, randomToken } from "./vendor/brsp.js";
 import { VdoNinjaTransport } from "./vendor/vdo-ninja-transport.js";
 import { commandForParticipant, formatBytes, observeActivity, parseInvite, sparklinePath } from "./core.js";
 import { mountTextFitting } from "./text-fit.js";
-import { mountExternalTabs } from "./external-tabs.js?v=0.1.7";
-import { createWorkspaceSync } from "./workspace-sync.js?v=0.1.7";
+import { mountExternalTabs } from "./external-tabs.js?v=0.1.8";
+import { createWorkspaceSync } from "./workspace-sync.js?v=0.1.8";
 
 const byId = (id) => document.getElementById(id);
 const elements = {

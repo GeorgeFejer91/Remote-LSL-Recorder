@@ -3,6 +3,7 @@ mod state;
 mod types;
 mod vlc;
 mod workspace;
+mod xdf_headers;
 
 use state::AppState;
 use tauri::{AppHandle, Manager, State};
@@ -99,6 +100,20 @@ async fn start_recording_and_play(app: AppHandle, port: u16) -> Result<AppSnapsh
 }
 
 #[tauri::command]
+async fn start_vlc_and_record(
+    app: AppHandle,
+    port: u16,
+    video_path: String,
+) -> Result<AppSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<AppState>()
+            .start_vlc_and_record(port, video_path)
+    })
+    .await
+    .map_err(|error| format!("VLC+ launch and recording task failed: {error}"))?
+}
+
+#[tauri::command]
 async fn stop_recording(app: AppHandle) -> Result<AppSnapshot, String> {
     tauri::async_runtime::spawn_blocking(move || app.state::<AppState>().stop_recording())
         .await
@@ -172,6 +187,7 @@ pub fn run() {
             emit_input_marker,
             start_recording,
             start_recording_and_play,
+            start_vlc_and_record,
             stop_recording,
             start_remote,
             stop_remote,
