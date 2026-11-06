@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#f3f1eb">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https: wss:; img-src 'self' data:; media-src 'none'; object-src 'none'; frame-src https: http://localhost:* http://127.0.0.1:* http://[::1]:*; base-uri 'none'; form-action 'none'">
   <title>Remote LSL Recorder</title>
-  <link rel="stylesheet" href="styles.css?v=0.1.7">
-  <link rel="stylesheet" href="external-tabs.css?v=0.1.7">
+  <link rel="stylesheet" href="styles.css?v=0.1.8">
+  <link rel="stylesheet" href="external-tabs.css?v=0.1.8">
   <script src="vendor/vdoninja-sdk.min.js" defer></script>
-  <script type="module" src="app.js?v=0.1.7"></script>
+  <script type="module" src="app.js?v=0.1.8"></script>
 </head>
 <body>
   <header class="appbar">
@@ -28,6 +28,7 @@
     </nav>
     <div id="recorder-panel" role="tabpanel" aria-labelledby="recorder-tab">
     <section id="pairing-panel" class="panel pairing">
+      <p><a href="vlc.html">VLC+ hotkeys and recording guide</a></p>
       <h2 data-fit-text="heading">Join the recorder</h2>
       <p id="pairing-copy">This invitation gives temporary access to one recorder session.</p>
       <label for="controller-name">Your name</label>
