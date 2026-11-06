@@ -588,6 +588,7 @@ impl AppState {
             .filter(|stream| stream.selected)
             .map(|stream| crate::xdf_headers::StreamIdentity {
                 name: &stream.name,
+                stream_type: &stream.stream_type,
                 source_id: &stream.source_id,
                 hostname: &stream.hostname,
             })

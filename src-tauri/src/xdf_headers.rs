@@ -1,7 +1,25 @@
+use serde::Deserialize;
+
 pub struct StreamIdentity<'a> {
     pub name: &'a str,
+    pub stream_type: &'a str,
     pub source_id: &'a str,
     pub hostname: &'a str,
+}
+
+#[derive(Deserialize)]
+enum HeaderDocument {
+    #[serde(rename = "info")]
+    Info(HeaderFields),
+}
+
+#[derive(Deserialize)]
+struct HeaderFields {
+    name: String,
+    #[serde(rename = "type")]
+    stream_type: String,
+    source_id: String,
+    hostname: String,
 }
 
 pub fn ready(bytes: &[u8], expected: &[StreamIdentity<'_>]) -> bool {
@@ -28,30 +46,20 @@ pub fn ready(bytes: &[u8], expected: &[StreamIdentity<'_>]) -> bool {
         if chunk[..2] == [2, 0]
             && chunk.len() >= 6
             && let Ok(xml) = std::str::from_utf8(&chunk[6..])
+            && let Ok(HeaderDocument::Info(header)) = quick_xml::de::from_str(xml)
         {
-            headers.push(xml);
+            headers.push(header);
         }
         remaining = &remaining[length..];
     }
     expected.iter().all(|stream| {
-        headers.iter().any(|xml| {
-            field(xml, "name", stream.name)
-                && field(xml, "hostname", stream.hostname)
-                && (stream.source_id.is_empty() || field(xml, "source_id", stream.source_id))
+        headers.iter().any(|header| {
+            header.name == stream.name
+                && header.stream_type == stream.stream_type
+                && header.hostname == stream.hostname
+                && header.source_id == stream.source_id
         })
     })
-}
-
-fn field(xml: &str, name: &str, value: &str) -> bool {
-    let escaped = value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;");
-    xml.contains(&format!("<{name}>{escaped}</{name}>"))
-        || (value.is_empty() && xml.contains(&format!("<{name} />")))
-        || (value.is_empty() && xml.contains(&format!("<{name}/>")))
 }
 
 #[cfg(test)]
@@ -71,10 +79,11 @@ mod tests {
     fn waits_for_complete_headers_from_the_exact_host_not_sample_text() {
         let expected = [StreamIdentity {
             name: "VLC",
+            stream_type: "Affect",
             source_id: "same-pid",
             hostname: "local",
         }];
-        let xml = "<info><name>VLC</name><source_id>same-pid</source_id><hostname>local</hostname></info>";
+        let xml = "<info><name>VLC</name><type>Affect</type><source_id>same-pid</source_id><hostname>local</hostname></info>";
         let mut bytes = b"XDF:".to_vec();
         bytes.extend(chunk(3, xml));
         bytes.extend(chunk(2, &xml.replace("local", "other")));
@@ -88,5 +97,49 @@ mod tests {
             b"XDF:\x08\xff\xff\xff\xff\xff\xff\xff\xff",
             &expected
         ));
+    }
+
+    #[test]
+    fn reads_decoded_direct_fields_and_distinguishes_anonymous_streams() {
+        let expected = [StreamIdentity {
+            name: "Alice's ECG & trace",
+            stream_type: "ECG",
+            source_id: "",
+            hostname: "local",
+        }];
+        let xml = "<info><name>Alice's ECG &amp; trace</name><type>ECG</type><source_id/><hostname>local</hostname></info>";
+        let file = |xml: &str| {
+            let mut bytes = b"XDF:".to_vec();
+            bytes.extend(chunk(2, xml));
+            bytes
+        };
+        assert!(ready(&file(xml), &expected));
+        assert!(ready(
+            &file(&xml.replace("Alice's ECG &amp; trace", "<![CDATA[Alice's ECG & trace]]>")),
+            &expected
+        ));
+        assert!(!ready(
+            &file(&xml.replace("<source_id/>", "<source_id>different</source_id>")),
+            &expected
+        ));
+        assert!(!ready(
+            &file(&xml.replace("<type>ECG</type>", "<type>Other</type>")),
+            &expected
+        ));
+        assert!(!ready(
+            &file(&xml.replace(
+                "<hostname>local</hostname>",
+                "<hostname>other</hostname><desc><hostname>local</hostname></desc>"
+            )),
+            &expected
+        ));
+        assert!(!ready(
+            &file(&xml.replace(
+                "<hostname>local</hostname>",
+                "<!-- <hostname>local</hostname> -->"
+            )),
+            &expected
+        ));
+        assert!(!ready(&file(&xml.replace("info>", "other>")), &expected));
     }
 }

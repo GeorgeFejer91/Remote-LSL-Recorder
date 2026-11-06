@@ -117,7 +117,7 @@ Do not turn this section into a second status ledger.
 - [x] Add one shared hotkey list to desktop setup and the static companion
   guide; pass rendered controls at 320/720/1280/1920 px, guide at 320/390/720/
   1280/1920 px, 200% text and text spacing, plus all external-tab/panel checks.
-- [x] Pass 21 JavaScript tests, 18 release-profile Rust tests (three explicit
+- [x] Pass 21 JavaScript tests, 19 release-profile Rust tests (three explicit
   native/hardware ignores), formatting and clippy. Independent review issues
   were corrected, including host/PID isolation and honest native receipts.
 - [ ] Complete hosted default-profile source/UI checks. Local `pnpm check`
@@ -129,8 +129,8 @@ Do not turn this section into a second status ledger.
   independent XDF/CSV inspection. The new button launched/recorded/played the
   film, but VLC's first-run privacy dialog blocked keys: FAILED qualification.
   The user must handle that dialog manually; no consent may be automated.
-- [ ] Publish and verify the static hotkey guide, then build/review/test the
-  exact Recorder0.1.8 installer and coordinate joint packaging with VLC+.
+- [x] Publish the static guide at `https://georgefejer91.github.io/Remote-LSL-Recorder/vlc.html`; Pages commit `99f7d0d` is built. Exact four public file hashes, 14 shortcut rows, 320/390/1280/1920 px and no Edge page errors pass.
+- [ ] Build/review/test the exact Recorder0.1.8 installer and coordinate joint packaging with VLC+.
 
 New candidate version is 0.1.8; no new installer/release is claimed yet. The
 native test now exercises the fixed default installed player and cannot name
