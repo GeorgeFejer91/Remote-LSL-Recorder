@@ -89,6 +89,7 @@ acceptance criteria pass. Do not create a duplicate progress ledger.
 | Scope | Required route |
 | --- | --- |
 | Shell output in every project | `rtk`; use supported compact commands, with raw reads for editing, parsers, hashes, and exact evidence |
+| Token use in every project | `saia-task-router` before delegation or subagent spawn. Use local tools for deterministic work and offload only provider-authorized inputs. Continue in the current agent if SAIA is unavailable. |
 | Lifecycle in every project | GSD Core: `gsd-help` selects the workflow; reuse `.planning/` state when present; apply its bounded outcome/evidence discipline inline for small changes |
 | Engineering in every project | `superpowers-using-superpowers` selects relevant `superpowers-*` practices; preserve similarly named local skills |
 | Coding and review | `ponytail`, then the affected domain skill |
